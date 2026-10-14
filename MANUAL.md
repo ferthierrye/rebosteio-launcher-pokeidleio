@@ -22,7 +22,7 @@ As integrações são configuradas por conta. Na Kick, conexão e consultas de s
 
 ## Bandeja e encerramento
 
-A opção de minimizar para a bandeja pode manter o processo aberto após fechar a janela. Encerre pela bandeja antes de atualizar/reabrir, evitando duas instâncias sobre os mesmos perfis.
+Fechar a janela encerra o aplicativo. Minimizar envia para a bandeja quando a opção está habilitada; clique no ícone da bandeja para restaurar.
 
 ## Dados e versões
 

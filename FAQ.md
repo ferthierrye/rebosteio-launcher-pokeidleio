@@ -34,7 +34,7 @@ O fluxo preserva `%APPDATA%/pionailo`. Não apague dados ao atualizar. Perfis El
 
 ## Fechar a janela encerra o aplicativo?
 
-Depende da opção de minimizar para a bandeja. Para atualizar ou evitar cópias simultâneas, encerre também pela bandeja.
+Sim. Fechar encerra o aplicativo; minimizar envia para a bandeja quando a opção está habilitada.
 
 ## Qual pasta devo editar?
 

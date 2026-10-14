@@ -18,8 +18,8 @@ ZIP: baixe uma nova copia para atualizar.
 Interface: rust-migration/ui. Backend: rust-migration/src-tauri/src.
 Reabra pelo BAT depois de editar. Interface usa arquivos locais;
 Rust compila incrementalmente. Nao gera EXE de distribuicao por edicao.
-Mantenha o terminal aberto durante o uso. Encerre tambem pela bandeja
-antes de iniciar outra copia.
+O terminal nao fica aberto. Consulte .runtime/launcher.log em falhas.
+Fechar encerra; minimizar usa a bandeja quando habilitada.
 
 Preserve os dados em %APPDATA%/pionailo.
 Leia TUTORIAL.md para instalacao manual e CONTRIBUTING.md para forks.

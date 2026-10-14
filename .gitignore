@@ -101,3 +101,6 @@ src/ui/themes/pokemon/**/*.json
 src/ui/themes/pokemon/**/*.md
 pokeidle_maps/
 
+
+!tools/launch-rust.vbs
+!tools/run-rust-hidden.ps1

@@ -11507,6 +11507,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
             : '<div class="cd-empty">' + (modo === 'targets' ? t('cdTargetsHint') : t('cdNone')) + '</div>') + '</div>';
       };
       SB.hunts = () => {
+        const on = rows.filter(r => r.st === 'on');
         carregaHunts();
         const leadRow = on.find(r => r.i === huntAccSel) || on[0];
         let atacante = null, pkVal = '';

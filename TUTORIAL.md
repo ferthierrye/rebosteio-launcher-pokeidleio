@@ -12,7 +12,7 @@ Execute **`Abrir PIO Nailo Rust.bat`**. O antigo `Abrir Poke Idle IO.bat` do Ele
 
 O script prepara Rust/Cargo, ferramentas C++ e SDK do Windows, WebView2, Tauri CLI e Python/Camoufox. Ele reaproveita ferramentas instaladas, cria um ambiente Python isolado e baixa as bibliotecas Rust conforme o lockfile. Não instala Electron nem exige Node.js.
 
-A primeira compilação pode demorar e usar vários GB; não há prazo fixo. Acompanhe as mensagens. Se um instalador pedir reinicialização, reinicie e execute o `.bat` novamente. Falhas ficam visíveis no terminal.
+A primeira compilação pode demorar e usar vários GB; não há prazo fixo. A execução fica em segundo plano e o andamento é registrado em `.runtime/launcher.log`. Se um instalador pedir reinicialização, reinicie e execute o `.bat` novamente. Uma falha de inicialização exibe um aviso.
 
 ## 3. Se a instalação automática falhar
 
@@ -50,4 +50,4 @@ Crie um atalho para **`Abrir PIO Nailo Rust.bat`**. Atalhos antigos para `.exe` 
 
 Edite `rust-migration/ui/` para a interface. Reabra pelo `.bat` para carregar os arquivos locais. Para mudanças em `rust-migration/src-tauri/src/`, reabra e aguarde a compilação incremental. Ela usa o cache de `target`; não cria arquivos `PIO-Nailo-v2.x-Rust.exe` a cada edição.
 
-Durante o uso, mantenha o terminal do `.bat` aberto: ele acompanha a execução Tauri. Feche o aplicativo completamente, inclusive pela bandeja se necessário, antes de iniciar outra cópia.
+O `.bat` executa em segundo plano, sem manter terminal aberto. O log fica em `.runtime/launcher.log`; falhas exibem um aviso. Fechar encerra o aplicativo; minimizar envia para a bandeja quando a opção está habilitada.

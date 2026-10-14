@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.16
+
+- Inicializador Rust executa em segundo plano, com log local e aviso em caso de falha.
+- Fechar encerra o aplicativo; minimizar usa a bandeja conforme a opção habilitada.
+- Corrigida variável ausente que interrompia a renderização do modo Simples.
+
+
 ## 2.0.15 — Rust como versão principal
 
 - Código Rust/Tauri e interface incluídos no repositório; executáveis, caches e dados locais continuam excluídos.

@@ -750,13 +750,14 @@ pub fn run() {
                 }
             }
             if window.label()=="main" {
-                if let tauri::WindowEvent::CloseRequested{api,..}=event {
-                    if window.state::<desktop_settings::DesktopSettings>().min_to_tray() && window.app_handle().tray_by_id("pio-main").is_some() {
-                        api.prevent_close();let _=window.hide();
-                        webview_memory::set_window_background(window.app_handle(),"main",true);
-                    } else {
-                        window.app_handle().exit(0);
-                    }
+                if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                    window.app_handle().exit(0);
+                }
+                if matches!(event, tauri::WindowEvent::Resized(_)) && window.is_minimized().unwrap_or(false)
+                    && window.state::<desktop_settings::DesktopSettings>().min_to_tray()
+                    && window.app_handle().tray_by_id("pio-main").is_some() {
+                    let _ = window.hide();
+                    webview_memory::set_window_background(window.app_handle(), "main", true);
                 }
             }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Resized(_)) {
