@@ -5,8 +5,8 @@
 <p>By</p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="src/ui/assets/rebosteio-logo.png">
-  <img src="src/ui/assets/rebosteio-logo-ink.png" width="280" alt="Rebosteio">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/rebosteio-cream.png">
+  <img src="docs/images/rebosteio-ink.png" width="280" alt="Rebosteio">
 </picture>
 
 # PIO Rebosteio — Launcher Multi-Contas
@@ -52,7 +52,7 @@ Cinco modos lado a lado para você comparar o consumo de CPU e memória. 💜
 ## 🚀 Bora abrir o launcher
 
 1. Clone este repositório ou seu fork, ou use **Code → Download ZIP** e extraia tudo.
-2. Execute **`Abrir PIO Nailo Rust.bat`** na raiz.
+2. Execute **`Abrir PIO Rebosteio.bat`** na raiz.
 3. Aguarde a preparação inicial. Downloads e compilação podem levar bastante tempo e ocupar vários GB. Instaladores Microsoft podem pedir autorização de administrador ou reinicialização.
 
 O inicializador verifica e prepara:

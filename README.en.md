@@ -6,7 +6,7 @@ PokeIdle launcher for Windows x64, with four account slots, a Rust backend and W
 
 ## Run from source
 
-Clone this repository or your fork, or extract **Code → Download ZIP**. Run **`Abrir PIO Nailo Rust.bat`** from the repository root.
+Clone this repository or your fork, or extract **Code → Download ZIP**. Run **`Abrir PIO Rebosteio.bat`** from the repository root.
 
 On first use, the script checks/installs Rust stable, Microsoft C++ Build Tools with VCTools and recommended components, WebView2, Tauri CLI 2.12.1, Python, and Camoufox 0.5.4 plus its browser. Python packages live in `.runtime/python`; Rust dependencies use `Cargo.lock`. Windows component setup requires winget. Administrator approval or a restart may be needed. Initial downloads and compilation can take significant time and several GB. Node.js/npm/Electron are not required by this launcher.
 

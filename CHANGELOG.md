@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.21 — Inicializador e logo Rebosteio
+
+- Inicializador renomeado para `Abrir PIO Rebosteio.bat`, com referências atualizadas na documentação e no caminho usado pelo atalho de inicialização.
+- Restaurada no README a logo original do brand kit, com detalhe dourado e variantes para fundos claro e escuro.
+
 ## 2.0.20 — Assinatura do README
 
 - Substituída a assinatura “Rebosteio by Nailo” por “PokeIdle.IO / By / Rebosteio” no cabeçalho, com logo Rebosteio adequada aos temas claro e escuro.

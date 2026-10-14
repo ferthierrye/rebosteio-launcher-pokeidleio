@@ -2,7 +2,7 @@
 
 ## Qual arquivo abre a versão nova?
 
-`Abrir PIO Nailo Rust.bat`. O inicializador Electron foi removido. Executáveis antigos continuam sendo versões independentes.
+`Abrir PIO Rebosteio.bat`. O inicializador Electron foi removido. Executáveis antigos continuam sendo versões independentes.
 
 ## Preciso instalar Node.js ou Electron?
 

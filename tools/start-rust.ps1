@@ -89,7 +89,7 @@ try {
     if ($LASTEXITCODE -ne 0) { Invoke-Checked $python @('-m', 'camoufox', 'fetch') }
     $env:PATH = "$root\.runtime\python\Scripts;$env:PATH"
     $env:PIO_NAILO_PYTHON = $python
-    $env:PIO_NAILO_SOURCE_LAUNCHER = Join-Path $root 'Abrir PIO Nailo Rust.bat'
+    $env:PIO_NAILO_SOURCE_LAUNCHER = Join-Path $root 'Abrir PIO Rebosteio.bat'
 
     $cli = if (Get-Command cargo-tauri.exe -ErrorAction SilentlyContinue) { & cargo-tauri.exe --version } else { '' }
     if ($cli -notmatch '2\.12\.1\b') {

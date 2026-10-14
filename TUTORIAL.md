@@ -8,7 +8,7 @@ Escolha uma pasta em que seu usuário possa gravar arquivos. Mantenha a estrutur
 
 ## 2. Abra o inicializador novo
 
-Execute **`Abrir PIO Nailo Rust.bat`**. O antigo `Abrir Poke Idle IO.bat` do Electron foi removido.
+Execute **`Abrir PIO Rebosteio.bat`**. O antigo `Abrir Poke Idle IO.bat` do Electron foi removido.
 
 O script prepara Rust/Cargo, ferramentas C++ e SDK do Windows, WebView2, Tauri CLI e Python/Camoufox. Ele reaproveita ferramentas instaladas, cria um ambiente Python isolado e baixa as bibliotecas Rust conforme o lockfile. Não instala Electron nem exige Node.js.
 
@@ -44,7 +44,7 @@ Com ZIP: baixe novamente, extraia em uma pasta nova e execute o novo `.bat`. Os 
 
 ## 6. Crie um atalho
 
-Crie um atalho para **`Abrir PIO Nailo Rust.bat`**. Atalhos antigos para `.exe` não passam pelo fluxo de atualização do código.
+Crie um atalho para **`Abrir PIO Rebosteio.bat`**. Atalhos antigos para `.exe` não passam pelo fluxo de atualização do código.
 
 ## 7. Edite sem publicar builds
 
