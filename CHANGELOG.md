@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.22 — Apresentação do README
+
+- Restaurada a logo monocromática anterior, preta no tema claro.
+- Removido o gráfico em imagem; mantida a tabela escrita de consumo de CPU e RAM.
+
 ## 2.0.21 — Inicializador e logo Rebosteio
 
 - Inicializador renomeado para `Abrir PIO Rebosteio.bat`, com referências atualizadas na documentação e no caminho usado pelo atalho de inicialização.

@@ -5,8 +5,8 @@
 <p>By</p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/rebosteio-cream.png">
-  <img src="docs/images/rebosteio-ink.png" width="280" alt="Rebosteio">
+  <source media="(prefers-color-scheme: dark)" srcset="src/ui/assets/rebosteio-logo.png">
+  <img src="src/ui/assets/rebosteio-logo-ink.png" width="280" alt="Rebosteio">
 </picture>
 
 # PIO Rebosteio — Launcher Multi-Contas
@@ -37,8 +37,6 @@ Launcher de PokeIdle para Windows x64, com quatro contas, WebView2 e backend Rus
 
 Cinco modos lado a lado para você comparar o consumo de CPU e memória. 💜
 
-![Comparativo de CPU e RAM médias por modo do PIO Rebosteio](docs/images/launcher-consumo.svg)
-
 | Modo | CPU média | CPU pico | RAM média | RAM pico |
 |:---|---:|---:|---:|---:|
 | 🟣 **Normal** | 38,4% | 88,6% | 3.323 MiB | 4.022 MiB |
@@ -47,7 +45,7 @@ Cinco modos lado a lado para você comparar o consumo de CPU e memória. 💜
 | 🟡 **Batalha** | **4,9%** | **11,2%** | 928 MiB | 1.126 MiB |
 | 🟢 **Headless** | 6,1% | 14,3% | **560 MiB** | **769 MiB** |
 
-<sub>Valores transcritos da tabela enviada pelo mantenedor. Hardware, versão do launcher, quantidade de contas, duração e método de medição não informados; os resultados não representam uma garantia de consumo no seu computador. As barras mostram as médias, com escalas independentes para CPU e RAM.</sub>
+<sub>Valores transcritos da tabela enviada pelo mantenedor. Hardware, versão do launcher, quantidade de contas, duração e método de medição não informados; os resultados não representam uma garantia de consumo no seu computador.</sub>
 
 ## 🚀 Bora abrir o launcher
 
