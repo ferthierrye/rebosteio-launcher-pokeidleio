@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.17 — Identidade da comunidade
+
+- Restauradas as logos PokeIdle IO e Rebosteio by Nailo no README.
+- Apresentação mais acolhedora, com badges, navegação e espaço para participação da comunidade; instruções atuais de Rust/Tauri preservadas.
+
 ## 2.0.16
 
 - Inicializador Rust executa em segundo plano, com log local e aviso em caso de falha.
