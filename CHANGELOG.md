@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.19 — Consumo por modo
+
+- Adicionados gráfico de médias e tabela de CPU/RAM no README para os cinco modos, com os valores fornecidos pelo mantenedor.
+- Indicadas a origem dos dados e as condições de teste ainda não informadas.
+
 ## 2.0.18 — Nome original no README
 
 - Restaurado o título “PIO Rebosteio — Launcher Multi-Contas”, com nome equivalente no README em inglês.

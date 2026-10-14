@@ -30,6 +30,22 @@ Launcher de PokeIdle para Windows x64, com quatro contas, WebView2 e backend Rus
 
 > 🌱 **Primeira vez por aqui?** Comece pelo [tutorial](TUTORIAL.md). O passo a passo te acompanha na preparação do launcher.
 
+## 📊 Quanto o launcher consome?
+
+Cinco modos lado a lado para você comparar o consumo de CPU e memória. 💜
+
+![Comparativo de CPU e RAM médias por modo do PIO Rebosteio](docs/images/launcher-consumo.svg)
+
+| Modo | CPU média | CPU pico | RAM média | RAM pico |
+|:---|---:|---:|---:|---:|
+| 🟣 **Normal** | 38,4% | 88,6% | 3.323 MiB | 4.022 MiB |
+| 🔵 **Eco** | 26,2% | 37,1% | 2.205 MiB | 2.383 MiB |
+| 🩵 **Só caça** | 24,4% | 40,4% | 2.171 MiB | 2.417 MiB |
+| 🟡 **Batalha** | **4,9%** | **11,2%** | 928 MiB | 1.126 MiB |
+| 🟢 **Headless** | 6,1% | 14,3% | **560 MiB** | **769 MiB** |
+
+<sub>Valores transcritos da tabela enviada pelo mantenedor. Hardware, versão do launcher, quantidade de contas, duração e método de medição não informados; os resultados não representam uma garantia de consumo no seu computador. As barras mostram as médias, com escalas independentes para CPU e RAM.</sub>
+
 ## 🚀 Bora abrir o launcher
 
 1. Clone este repositório ou seu fork, ou use **Code → Download ZIP** e extraia tudo.
