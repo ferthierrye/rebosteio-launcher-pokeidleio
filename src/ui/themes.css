@@ -815,12 +815,12 @@ body[data-theme] :is(#overlay, #scOverlay, #tlOverlay, #dtOverlay, #atOverlay, #
   backdrop-filter: blur(8px) !important;
 }
 
-body[data-theme] :is(#autoSupplyOverlay, #twitchBonusOverlay) {
+body[data-theme] :is(#autoSupplyOverlay, #twitchBonusOverlay, #kickBonusOverlay) {
   background: rgba(4, 11, 20, 0.88) !important;
   backdrop-filter: none !important;
 }
 
-body[data-theme] :is(#modal, #scModal, #tlModal, #dtModal, #atModal, #dispatchModal, #autoSupplyModal, #twitchBonusModal) {
+body[data-theme] :is(#modal, #scModal, #tlModal, #dtModal, #atModal, #dispatchModal, #autoSupplyModal, #twitchBonusModal, #kickBonusModal) {
   background: var(--color-bg-elevated) !important;
   border: 1px solid var(--border-subtle) !important;
   color: var(--color-text-primary) !important;
@@ -1040,11 +1040,11 @@ body[data-theme-tone="light"] #leafAccountList::-webkit-scrollbar-thumb {
   background: var(--border-strong) !important;
 }
 
-body[data-theme-tone="light"] :is(#overlay, #scOverlay, #tlOverlay, #dtOverlay, #atOverlay, #dispatchOverlay, #autoSupplyOverlay, #twitchBonusOverlay) {
+body[data-theme-tone="light"] :is(#overlay, #scOverlay, #tlOverlay, #dtOverlay, #atOverlay, #dispatchOverlay, #autoSupplyOverlay, #twitchBonusOverlay, #kickBonusOverlay) {
   background: rgba(15, 23, 42, 0.45) !important;
 }
 
-body[data-theme-tone="light"] :is(#modal, #scModal, #tlModal, #dtModal, #atModal, #dispatchModal, #autoSupplyModal, #twitchBonusModal) {
+body[data-theme-tone="light"] :is(#modal, #scModal, #tlModal, #dtModal, #atModal, #dispatchModal, #autoSupplyModal, #twitchBonusModal, #kickBonusModal) {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--border-subtle) !important;
 }
 

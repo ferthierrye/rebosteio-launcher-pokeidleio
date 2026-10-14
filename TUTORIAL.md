@@ -1,73 +1,53 @@
-<div align="center">
+# Abrir o PIO Nailo Rust no Windows
 
-<img src="src/ui/assets/rebosteio-by-nailo.png" width="240" alt="PIO Rebosteio by Nailo">
+## 1. Baixe o código
 
-# Como Usar o PIO Rebosteio (Passo a Passo)
+Para contribuir, prefira criar um fork no GitHub e clonar o **seu fork** com Git. Para apenas experimentar, use **Code → Download ZIP** e **Extrair Tudo**. Não execute o `.bat` de dentro do ZIP.
 
-**Guia para rodar direto do código-fonte**
+Escolha uma pasta em que seu usuário possa gravar arquivos. Mantenha a estrutura inteira, incluindo `tools` e `rust-migration`.
 
-</div>
+## 2. Abra o inicializador novo
 
-Este guia é feito para quem nunca mexeu com programação ou execução de código. Rodar o launcher a partir do código aberto é simples, leva menos de 3 minutos e a parte de preparação só precisa ser feita **uma única vez**.
+Execute **`Abrir PIO Nailo Rust.bat`**. O antigo `Abrir Poke Idle IO.bat` do Electron foi removido.
 
----
+O script prepara Rust/Cargo, ferramentas C++ e SDK do Windows, WebView2, Tauri CLI e Python/Camoufox. Ele reaproveita ferramentas instaladas, cria um ambiente Python isolado e baixa as bibliotecas Rust conforme o lockfile. Não instala Electron nem exige Node.js.
 
-## 📦 Passo 1: Node.js (Automático no Windows!)
+A primeira compilação pode demorar e usar vários GB; não há prazo fixo. Acompanhe as mensagens. Se um instalador pedir reinicialização, reinicie e execute o `.bat` novamente. Falhas ficam visíveis no terminal.
 
-No Windows, você **não precisa instalar nada manualmente**: ao dar dois cliques em `Abrir Poke Idle IO.bat`, o inicializador verifica e baixa a versão oficial portátil do Node.js LTS automaticamente caso você não tenha!
+## 3. Se a instalação automática falhar
 
-Caso utilize Linux/macOS ou prefira instalar o Node.js manualmente no sistema:
-1. Acesse o site oficial: **[nodejs.org](https://nodejs.org)**
-2. Baixe e instale a versão **LTS** (versão 22 ou superior).
+Instale os componentes oficiais necessários e execute o `.bat` outra vez:
 
----
+- **winget**: instale/atualize [App Installer](https://apps.microsoft.com/detail/9nblggh4nns1) na Microsoft Store.
+- **C++**: [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), selecionando **Desktop development with C++**, ferramentas MSVC x64/x86 e Windows SDK.
+- **Rust**: [rustup](https://rustup.rs/), com a toolchain stable MSVC para Windows x64.
+- **WebView2**: [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+- **Python**: [Python para Windows](https://www.python.org/downloads/windows/). O script tenta instalações existentes e usa Python 3.11 na instalação automática.
 
-## 📥 Passo 2: Baixar a Pasta do Projeto
+Os requisitos nativos seguem a [documentação do Tauri](https://v2.tauri.app/start/prerequisites/).
 
-1. Na página do projeto no GitHub, clique no botão verde **Code** (localizado no canto superior direito).
-2. Selecione **Download ZIP**.
-3. Vá até a sua pasta de *Downloads*, clique com o botão direito no arquivo `.zip` baixado e escolha **Extrair Tudo...**.
-4. Uma pasta com os arquivos do projeto será criada. Coloque-a no local que preferir (por exemplo, em sua pasta de Documentos ou Área de Trabalho).
+Para consultar a detecção sem instalar nada:
 
----
-
-## 🚀 Passo 3: Abrir o Aplicativo
-
-1. Abra a pasta do projeto extraída.
-2. Dê dois cliques no arquivo **`Abrir Poke Idle IO.bat`**.
-3. **Na primeira vez que você abrir**, uma janela de terminal preta fará o download automático das dependências necessárias (isso leva cerca de 1 a 2 minutos). Em seguida, a janela do launcher se abrirá sozinha.
-4. Nas próximas vezes, a janela só pisca por um instante e o launcher abre de imediato.
-
-> 💡 **Dica de Atalho**: Para abrir o launcher com um clique direto da sua área de trabalho, clique com o botão direito em **`Abrir Poke Idle IO.bat`** e escolha **Enviar para → Área de trabalho (criar atalho)**.
-
-> ℹ️ *Se o Windows SmartScreen exibir um alerta de "Windows protegeu o computador":* clique em **Mais informações** e depois em **Executar assim mesmo**. O app é 100% aberto e seguro, apenas não possui certificados proprietários comerciais.
-
-### No Linux ou macOS
-Abra o Terminal dentro da pasta do projeto e digite:
-
-```bash
-npm install
-npm start
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/start-rust.ps1 -CheckOnly
 ```
 
----
+## 4. Use suas contas
 
-## 🎯 Passo 4: Entrar nas Contas e Farmar
+Abra Treinadores/Configurações, confira as quatro contas e use **Logar equipe**. A execução pelo código usa os dados Rust em `%APPDATA%/pionailo`. Preserve essa pasta. Preferências da interface podem diferir entre o modo local e executáveis antigos; não limpe perfis para resolver uma atualização.
 
-1. No quadrante de cada conta, faça login normalmente com sua conta do Poke Idle IO (ou crie uma nova).
-2. O desafio de verificação (**"Confirme que é humano"**) é sempre resolvido manualmente por você na tela da conta.
-3. Clique no botão **👤 Treinadores** no topo, preencha o e-mail e senha das suas contas e clique em **Salvar**.
-4. A partir de agora, sempre que abrir o launcher, basta clicar em **▶ Logar equipe** e todas as suas contas entrarão automaticamente!
+## 5. Atualize
 
----
+Com Git: feche o app e abra o `.bat` novamente. Ele atualiza somente se o clone estiver limpo e o acompanhamento do branch permitir avanço direto. Alterações locais, branches sem upstream e divergências precisam ser resolvidos por quem mantém o fork. O script não faz reset, stash ou merge automático.
 
-## 🔄 Como Atualizar Quando Sair Versão Nova
+Com ZIP: baixe novamente, extraia em uma pasta nova e execute o novo `.bat`. Os dados persistentes Rust ficam fora da pasta do projeto.
 
-Basta baixar o novo ZIP no GitHub e substituir os arquivos da pasta antiga. Todas as suas contas salvas, metas e preferências continuarão salvas intactas no seu computador!
+## 6. Crie um atalho
 
----
+Crie um atalho para **`Abrir PIO Nailo Rust.bat`**. Atalhos antigos para `.exe` não passam pelo fluxo de atualização do código.
 
-## ❓ Dúvidas ou Problemas Comuns?
+## 7. Edite sem publicar builds
 
-* Consulte nosso **[FAQ.md](FAQ.md)** para resoluções rápidas de tela branca, permissões de firewall ou dúvidas de desempenho.
-* Para entender em detalhes o que cada botão e função faz, leia nosso **[MANUAL.md](MANUAL.md)**.
+Edite `rust-migration/ui/` para a interface. Reabra pelo `.bat` para carregar os arquivos locais. Para mudanças em `rust-migration/src-tauri/src/`, reabra e aguarde a compilação incremental. Ela usa o cache de `target`; não cria arquivos `PIO-Nailo-v2.x-Rust.exe` a cada edição.
+
+Durante o uso, mantenha o terminal do `.bat` aberto: ele acompanha a execução Tauri. Feche o aplicativo completamente, inclusive pela bandeja se necessário, antes de iniciar outra cópia.

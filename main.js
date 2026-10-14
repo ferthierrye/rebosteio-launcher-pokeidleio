@@ -18,6 +18,48 @@ try {
 app.commandLine.appendSwitch('disable-gpu-compositing');
 const https = require('https');
 const { twitchChatManager } = require('./src/domain/twitch-chat-service');
+const { kickPresenceManager } = require('./src/domain/kick-presence-service');
+const { gameHeadlessManager } = require('./src/domain/game-headless-service');
+const { createKickBrowser } = require('./src/main/kick-browser');
+let kickPointsManager = null;
+function getKickPointsManager() {
+  if (!kickPointsManager) {
+    kickPointsManager = createKickBrowser({
+      prepareSession: i => applyAccountProxy(i, readAccounts()[i]?.proxy),
+      getProxy: i => activeProxies[i],
+      onAutoCapture: (index, username) => {
+        try {
+          const creds = kickPresenceManager.loadCreds() || {};
+          if (!Array.isArray(creds.accounts)) creds.accounts = [{}, {}, {}, {}];
+          while (creds.accounts.length < 4) creds.accounts.push({});
+          creds.accounts[index] = { ...creds.accounts[index], username };
+          kickPresenceManager.saveCreds(creds);
+          for (const window of BrowserWindow.getAllWindows()) {
+            if (!window.isDestroyed() && window.webContents.getURL().startsWith('file://')) {
+              window.webContents.send('kick:creds:update', creds);
+            }
+          }
+        } catch {}
+      },
+      onChange: st => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed() && window.webContents.getURL().startsWith('file://')) {
+            window.webContents.send('kick:points:update', st);
+          }
+        }
+      }
+    });
+    kickPresenceManager.setTransport({
+      getSession: i => kickPointsManager.getSession(i),
+      request: (i, ses, url, headers) => kickPointsManager.request(i, ses, url, headers)
+    });
+  }
+  return kickPointsManager;
+}
+app.on('before-quit', () => {
+  kickPointsManager?.dispose();
+  gameHeadlessManager?.stopAll();
+});
 
 // Silencia o spam do Chromium no terminal (ex.: STUN/WebRTC do jogo que a rede nao resolve).
 // E so log, nao afeta o app. Mantem so erros fatais.
@@ -224,18 +266,269 @@ const abreFora = (url) => {
   aberturas.push(agora);
   shell.openExternal(url);
 };
+const authWindows = new Map();
+
+function isAuthUrl(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    return host.endsWith('kick.com') || host.endsWith('twitch.tv');
+  } catch {
+    return false;
+  }
+}
+
+function getAccountIndexForContents(contents) {
+  for (let i = 0; i < MAX_ACCOUNTS; i++) {
+    if (contents.session === session.fromPartition('persist:conta' + (i + 1))) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function openAuthWindow(accIdx, targetUrl, webviewContents) {
+  if (accIdx < 0 || accIdx >= MAX_ACCOUNTS) {
+    abreFora(targetUrl);
+    return null;
+  }
+  let existing = authWindows.get(accIdx);
+  if (existing && !existing.isDestroyed()) {
+    if (targetUrl) existing.loadURL(targetUrl);
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+
+  const ses = session.fromPartition('persist:conta' + (accIdx + 1));
+  const isKick = targetUrl.toLowerCase().includes('kick.com');
+  const isTwitch = targetUrl.toLowerCase().includes('twitch.tv');
+
+  if (!webviewContents) {
+    const all = webContents.getAllWebContents();
+    webviewContents = all.find(c => c.getType() === 'webview' && c.session === ses);
+  }
+
+  const win = new BrowserWindow({
+    width: 720,
+    height: 800,
+    title: isKick ? `Vincular Kick — Conta ${accIdx + 1}` : (isTwitch ? `Vincular Twitch — Conta ${accIdx + 1}` : `Autenticação — Conta ${accIdx + 1}`),
+    autoHideMenuBar: true,
+    webPreferences: {
+      session: ses,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true
+    }
+  });
+
+  authWindows.set(accIdx, win);
+  win.on('closed', () => { authWindows.delete(accIdx); });
+
+  win.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+    if (popupUrl.startsWith('https://')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          webPreferences: { session: ses, nodeIntegration: false, contextIsolation: true, sandbox: true }
+        }
+      };
+    }
+    return { action: 'deny' };
+  });
+
+  let redirectHandled = false;
+  const checkRedirect = (navUrl) => {
+    try {
+      const u = new URL(navUrl);
+      const host = u.hostname.toLowerCase();
+      if (host === 'pokeidle.io' || host === 'poke.idleworld.online') {
+        // Se ainda for a rota intermediária de callback com o code de autorização,
+        // deixa a janela de auth (win) trocar o code com o backend do PokeIdle.
+        // NÃO repassa o retorno com code para o webview para não consumir o code único duas vezes!
+        if (u.pathname.includes('/auth/kick/retorno') || u.pathname.includes('/auth/twitch/retorno')) {
+          return;
+        }
+
+        if (redirectHandled) return;
+
+        if (!webviewContents || webviewContents.isDestroyed()) {
+          const all = webContents.getAllWebContents();
+          webviewContents = all.find(c => c.getType() === 'webview' && c.session === ses);
+        }
+
+        const kickRes = u.searchParams.get('kick');
+        const kv = u.searchParams.get('kv');
+        const twRes = u.searchParams.get('twitch');
+
+        if (kickRes === 'confirmar' && kv) {
+          redirectHandled = true;
+          let kickLogin = '';
+          try {
+            const part = String(kv).split('.')[0];
+            const rawJson = Buffer.from(part, 'base64url').toString('utf8');
+            kickLogin = JSON.parse(rawJson)?.login || '';
+          } catch {}
+
+          if (webviewContents && !webviewContents.isDestroyed()) {
+            // Confirma o vínculo diretamente na API do PokeIdle com o token assinado kv
+            webviewContents.executeJavaScript(`(async () => {
+              try {
+                let token = null;
+                try {
+                  const sL = JSON.parse(localStorage.getItem('sessao') || 'null');
+                  if (sL && sL.token) token = sL.token;
+                } catch {}
+                if (!token && window.__poke && window.__poke.token) token = window.__poke.token;
+                if (!token && window.estado && window.estado.token) token = window.estado.token;
+                if (!token) return { ok: false, error: 'Token não encontrado no cliente' };
+                const disp = localStorage.getItem('id-dispositivo') || '';
+                const r = await fetch('/auth/kick/confirmar', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ token, kv: ${JSON.stringify(kv)}, dispositivo: disp })
+                });
+                const j = await r.json().catch(() => ({}));
+                if (r.ok) {
+                  const finalLogin = j.login || ${JSON.stringify(kickLogin)};
+                  try {
+                    if (window.estado) {
+                      if (!window.estado.eu) window.estado.eu = {};
+                      if (!window.estado.eu.kick) window.estado.eu.kick = {};
+                      window.estado.eu.kick.vinculado = true;
+                      if (finalLogin) window.estado.eu.kick.login = finalLogin;
+                    }
+                    if (window.__poke && window.__poke.estado) {
+                      if (!window.__poke.estado.eu) window.__poke.estado.eu = {};
+                      if (!window.__poke.estado.eu.kick) window.__poke.estado.eu.kick = {};
+                      window.__poke.estado.eu.kick.vinculado = true;
+                      if (finalLogin) window.__poke.estado.eu.kick.login = finalLogin;
+                    }
+                    if (typeof montarKick === 'function') montarKick();
+                    if (typeof pintarAtivosDoTreinador === 'function' && window.estado?.eu) {
+                      pintarAtivosDoTreinador(window.estado.eu);
+                    }
+                    if (typeof toast === 'function') {
+                      toast('Kick vinculada com sucesso: @' + finalLogin);
+                    }
+                    const btn = document.querySelector('.tr-ativo.kick, button.kk-conectar');
+                    if (btn) btn.click();
+                  } catch {}
+                  return { ok: true, login: finalLogin };
+                }
+                return { ok: false, error: j.erro || 'Falha ao confirmar vínculo no servidor' };
+              } catch (e) {
+                return { ok: false, error: e.message };
+              }
+            })()`).then((confRes) => {
+              logErro('kick-link', 'Resultado confirmacao conta ' + (accIdx + 1) + ': ' + JSON.stringify(confRes));
+              const lName = (confRes && confRes.login) || kickLogin;
+              for (const window of BrowserWindow.getAllWindows()) {
+                if (!window.isDestroyed() && window.webContents.getURL().startsWith('file://')) {
+                  window.webContents.send('kick:game-linked', { index: accIdx, login: lName });
+                }
+              }
+              if (confRes && !confRes.ok) {
+                if (webviewContents && !webviewContents.isDestroyed()) {
+                  webviewContents.loadURL(navUrl);
+                }
+              }
+              if (isKick) {
+                getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+              }
+              setTimeout(() => {
+                if (!win.isDestroyed()) win.close();
+              }, 1200);
+            }).catch(() => {
+              if (webviewContents && !webviewContents.isDestroyed()) {
+                webviewContents.loadURL(navUrl);
+              }
+              if (isKick) {
+                getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+              }
+              setTimeout(() => {
+                if (!win.isDestroyed()) win.close();
+              }, 1200);
+            });
+          } else {
+            if (webviewContents && !webviewContents.isDestroyed()) {
+              webviewContents.loadURL(navUrl);
+            }
+            if (isKick) {
+              getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+            }
+            setTimeout(() => {
+              if (!win.isDestroyed()) win.close();
+            }, 1200);
+          }
+        } else if (kickRes || twRes) {
+          redirectHandled = true;
+          if (webviewContents && !webviewContents.isDestroyed()) {
+            webviewContents.loadURL(navUrl);
+          }
+          if (isKick) {
+            getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+          }
+          setTimeout(() => {
+            if (!win.isDestroyed()) win.close();
+          }, 1200);
+        }
+      }
+    } catch {}
+  };
+
+  win.webContents.on('will-navigate', (_e, navUrl) => checkRedirect(navUrl));
+  win.webContents.on('will-redirect', (_e, navUrl) => checkRedirect(navUrl));
+  win.webContents.on('did-navigate', (_e, navUrl) => checkRedirect(navUrl));
+
+  if (isKick) {
+    const onCookie = (_event, cookie, cause, removed) => {
+      if (!removed && cookie.domain && cookie.domain.includes('kick.com')) {
+        getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+      }
+    };
+    ses.cookies.on('changed', onCookie);
+    win.on('closed', () => {
+      ses.cookies.removeListener('changed', onCookie);
+    });
+    win.webContents.on('did-finish-load', () => {
+      getKickPointsManager().captureSession?.(accIdx).catch(() => {});
+    });
+  }
+
+  win.loadURL(targetUrl).catch(() => {});
+  return win;
+}
+
 app.on('web-contents-created', (_e, contents) => {
   // corretor ortografico: dicionario (.bdic) e servico por sessao; ninguem digita texto longo aqui
   try { contents.session.setSpellCheckerEnabled(false); } catch {}
   if (contents.getType() !== 'webview') return;
   coalesceScriptLoading(contents);
   blockMetaPixel(contents.session);
-  contents.setWindowOpenHandler(({ url }) => { abreFora(url); return { action: 'deny' }; });
+  contents.setWindowOpenHandler(({ url }) => {
+    const accIdx = getAccountIndexForContents(contents);
+    if (accIdx >= 0 && isAuthUrl(url)) {
+      openAuthWindow(accIdx, url, contents);
+      return { action: 'deny' };
+    }
+    abreFora(url);
+    return { action: 'deny' };
+  });
   // compara a ORIGEM, nao o prefixo: 'https://pokeidle.io.evil.com' comeca igual e
   // passaria, levando a sessao logada pra um site clonado sem barra de endereco
   const mesmoJogo = (u) => { try { const o = new URL(u).origin; return o === new URL(GAME).origin || o === 'https://poke.idleworld.online'; } catch { return false; } };
   const guarda = (e, url) => {
-    if (!mesmoJogo(url) && url !== 'about:blank') { e.preventDefault(); abreFora(url); }
+    if (!mesmoJogo(url) && url !== 'about:blank') {
+      e.preventDefault();
+      const accIdx = getAccountIndexForContents(contents);
+      if (accIdx >= 0 && isAuthUrl(url)) {
+        openAuthWindow(accIdx, url, contents);
+      } else {
+        abreFora(url);
+      }
+    }
   };
   contents.on('will-navigate', guarda);
   contents.on('will-redirect', guarda);
@@ -407,6 +700,84 @@ ipcMain.handle('twitch:sync-lives', (_e, lives) => {
   return true;
 });
 ipcMain.handle('twitch:status:get', () => twitchChatManager.getStatus());
+
+ipcMain.handle('kick:creds:load', () => {
+  const mgr = getKickPointsManager();
+  const data = kickPresenceManager.loadCreds();
+  mgr.configure(data);
+  return data;
+});
+ipcMain.handle('kick:creds:save', (_e, data) => {
+  const ok = kickPresenceManager.saveCreds(data);
+  if (ok) getKickPointsManager().configure(data);
+  return ok;
+});
+ipcMain.handle('kick:test', (_e, username, token) => kickPresenceManager.testConnection(username, token));
+ipcMain.handle('kick:sync-lives', (_e, lives) => {
+  kickPresenceManager.syncLives(lives);
+  return true;
+});
+ipcMain.handle('kick:status:get', () => kickPresenceManager.getStatus());
+
+// Ultra Eco Master Blaster Plus Pro Max (Headless WebSocket puro)
+gameHeadlessManager.on('update', ({ index, state }) => {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && window.webContents.getURL().startsWith('file://')) {
+      window.webContents.send('blaster:update', { index, state });
+    }
+  }
+});
+gameHeadlessManager.on('status', ({ index, status, error }) => {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && window.webContents.getURL().startsWith('file://')) {
+      window.webContents.send('blaster:status', { index, status, error });
+    }
+  }
+});
+
+ipcMain.handle('blaster:start', (_e, index, config) => {
+  const proxy = readAccounts()[index]?.proxy;
+  gameHeadlessManager.start(index, { ...config, proxy });
+  return { ok: true };
+});
+ipcMain.handle('blaster:stop', (_e, index) => {
+  gameHeadlessManager.stop(index);
+  return { ok: true };
+});
+ipcMain.handle('blaster:status', (_e, index) => {
+  return gameHeadlessManager.getStatus(index);
+});
+
+// These account/session actions are available only to the local launcher frame.
+const requireKickLauncher = event => {
+  if (event.senderFrame !== event.sender.mainFrame ||
+      event.sender.getURL().split('?')[0] !== require('url').pathToFileURL(path.join(__dirname, 'index.html')).href) {
+    throw new Error('Origem não autorizada.');
+  }
+};
+ipcMain.handle('kick:points:get', event => { requireKickLauncher(event); return getKickPointsManager().getStatus(); });
+ipcMain.handle('kick:points:refresh', (event, index) => {
+  requireKickLauncher(event);
+  return getKickPointsManager().refresh(index, true);
+});
+ipcMain.handle('kick:session:open', (event, index, slug) => {
+  requireKickLauncher(event);
+  return getKickPointsManager().open(index, slug);
+});
+ipcMain.handle('kick:points:channels', (event, channels) => {
+  requireKickLauncher(event);
+  const chList = Array.isArray(channels) ? channels : [];
+  getKickPointsManager().setChannels(chList);
+  kickPresenceManager.addMonitoredChannels(chList);
+  return true;
+});
+ipcMain.handle('auth:window:open', (event, index, url) => {
+  requireKickLauncher(event);
+  const accIndex = Math.trunc(+index);
+  if (accIndex < 0 || accIndex >= MAX_ACCOUNTS) throw new Error('Conta inválida.');
+  openAuthWindow(accIndex, url);
+  return true;
+});
 
 // UA consistente pra passar na Cloudflare: remove o token "Electron/..." e
 // congela a versão do Chrome em .0.0.0, casando com os client hints (navigator.userAgentData).
@@ -731,7 +1102,16 @@ app.whenReady().then(() => {
       try { win.webContents.send('twitch:status:update', st); } catch {}
     }
   });
-  win.on('closed', () => twitchChatManager.setStatusCallback(null));
+  kickPresenceManager.setStatusCallback((st) => {
+    if (!win.isDestroyed()) {
+      try { win.webContents.send('kick:status:update', st); } catch {}
+    }
+  });
+  getKickPointsManager();
+  win.on('closed', () => {
+    twitchChatManager.setStatusCallback(null);
+    kickPresenceManager.setStatusCallback(null);
+  });
   // a janela principal so mostra index.html: bloqueia qualquer navegacao dela (canal de exfiltracao se houver XSS)
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) { e.preventDefault(); abreFora(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { abreFora(url); return { action: 'deny' }; });

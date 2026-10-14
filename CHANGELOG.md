@@ -1,8 +1,178 @@
 # Changelog
 
+## 2.0.15 — Rust como versão principal
+
+- Código Rust/Tauri e interface incluídos no repositório; executáveis, caches e dados locais continuam excluídos.
+- Novo inicializador `Abrir PIO Nailo Rust.bat` prepara Rust, ferramentas C++, WebView2 e Python/Camoufox, reaproveitando instalações existentes.
+- Execução pelo código-fonte com servidor local do Tauri: alterações de interface dispensam executável novo; código Rust usa compilação incremental.
+- Atualização pelo branch de acompanhamento de cada clone/fork, somente com avanço direto e sem sobrescrever alterações locais.
+- Inicializador Electron removido; documentação e instruções de contribuição atualizadas para Windows e Rust.
+- Correção de alinhamento dos controles de animação integrada também à interface Rust.
+
+## 1.5.83
+
+- Alinhados verticalmente os controles “Pausar animação” e “Ativar Headless” no painel de batalha.
+
+## 1.5.82 — Rust 2.0.14
+
+- Indicador de buffs resgatáveis por canal conforme a seleção, saldo confirmado e catálogo real da Kick.
+- Resgate automático opcional na versão Rust, sem player, com vínculo de identidade, registro persistente e pausa em respostas sem confirmação.
+- Catálogo e saldo consultados a cada minuto enquanto a integração está ativa; recompensas pausadas, desabilitadas ou com preço diferente não são resgatadas.
+
+
+## 1.5.81
+
+- Tabela por conta mantém as linhas na mesma posição durante as atualizações de dados e mudanças de status.
+- Ordenação por coluna aplicada somente ao clicar no cabeçalho, nas interfaces Electron e Rust.
+
+## 1.5.80 — Rust 2.0.13
+
+- Corrigida a sobreposição das WebViews nativas sobre Ferramentas, Configurações e painéis abertos.
+- Ao expandir uma conta, as WebViews das outras contas ficam ocultas e retornam ao voltar à grade, preservando as sessões.
+
+## 1.5.79 — Rust 2.0.12
+
+- Saldo Kick consultado pela sessão WebView2 da própria conta, sem copiar a sessão para o cliente HTTP Rust.
+- Conexão Kick abre a página de perfil, sem player; fechar encerra a página e preserva o login salvo.
+- Consulta automática usa somente uma página de texto e encerra a janela de consulta ao terminar, inclusive em falhas.
+- Removidas mensagens de visualização headless; os controles verificam a sessão e atualizam o saldo sem abrir canais.
+
+## 1.5.78 — Rust 2.0.11
+
+- ID de personagem preservado entre gameplay, Painel de batalha e Headless; nick deixa de ser usado como identidade.
+- Telemetria não dispara reset do jogo ao detectar troca de personagem. Reset manual usa somente os botões de zerar, sem selecionar Copiar.
+- Respostas antigas de autenticação são descartadas; estado conectado atualiza o status e cancela avisos atrasados de re-login.
+- Preservada a economia de renderização do Painel de batalha e a nomenclatura simplificada da versão anterior.
+
+
+## 1.5.77
+
+- Títulos e controles simplificados: Arena/Battle HUD agora é Painel de batalha; Master Blaster agora é Headless.
+- Nomes atualizados nos botões, dicas e mensagens de conexão das interfaces Electron e Rust.
+
+## 1.5.76 — Rust 2.0.10
+
+- Gameplay, Battle HUD e Blaster usam o mesmo cálculo de estoque de pokébolas, poções e revives; mapas completos substituem o estoque anterior.
+- HUD mostra poções e revives, identifica estoque ainda não recebido e respeita a bola selecionada e infinita.
+- Auto Supply aguarda estoque conhecido; consumo não altera quantidades por estimativa.
+- Transições bloqueiam login concorrente na mesma conta; autenticação Python de outra conta não bloqueia o Blaster. Auxiliar executado sem janela de console.
+
+
+## 1.5.75 — Rust 2.0.9
+
+- Auto Supply usa a conexão nativa do Master Blaster e confirma o aumento do estoque pelo servidor antes de anunciar a compra.
+- Estado Rust preserva o estoque por item de pokébolas, poções e revives.
+- Falhas de execução do Supply exibem o motivo recebido.
+
+
+## 1.5.74 — Rust 2.0.8
+
+- Kick restaura o perfil autenticado para consultar a sessao depois de fechar a janela ou reiniciar o launcher.
+- Fechar a janela Kick preserva a sessao e dispara a atualizacao de saldo, sem player oculto.
+
+## 1.5.73 — Rust 2.0.7
+
+- Configurações Twitch/Kick são carregadas antes das gravações automáticas de telemetria; arquivos ilegíveis são preservados.
+- Auto Supply confirma somente a gravação real e mantém as configurações anteriores em caso de falha.
+- Implementados controles nativos de zoom, mudo, bandeja, inicialização com o Windows e notificações.
+- Proxy por conta aplicado às janelas, conexões de jogo e consultas de pontos, com erro explícito quando a configuração é inválida.
+
+
+## 1.5.72 — Rust 2.0.6
+
+- Corrigido o botão Entrar na Kick: abertura sem canal envia o parâmetro vazio exigido pelo backend Rust e abre a página oficial.
+
+
+## 1.5.71 — Rust 2.0.5
+
+- Serviço Twitch por conta com autenticação IRC, canais confirmados, PING/PONG, reconexão e desligamento ao alterar configuração.
+- Sessão Kick em janela oficial com perfil por conta; identidade autenticada e saldos por canal consultados no backend, sem simular ganhos.
+- Estados e erros reais emitidos ao launcher; bônus Twitch/Kick preservados na telemetria da Arena e do Blaster.
+- Credenciais sociais protegidas com DPAPI, mantendo leitura dos arquivos anteriores.
+
+
+## 1.5.70 — Rust 2.0.4
+
+- Indicadores sociais integrados ao frontend Rust da Arena e Blaster. Exibe vínculo e bônus da telemetria do jogo; saldo Kick identificado como saldo do jogo quando disponível.
+- Consultas nativas de presença e saldo por canal ainda indisponíveis no backend Rust.
+
+## 1.5.69
+
+- Arena HUD e Blaster exibem conexão Twitch e Kick por conta e os bônus informados pelo jogo.
+- Resumo dos pontos Kick confirmados por canal, com detalhe ao passar o mouse e indicação de saldo parcial ou indisponível.
+
+## 1.5.68 — Rust 2.0.3
+
+- HUD reconhece a espécie base das variantes de caça, incluindo Hard Golem, com nomes ou identificadores separados por sublinhado.
+- Corrigidos os sprites das caças Nidoranfe e Nidoranma.
+- Conferência de correspondência das 343 caças de Pokémon do catálogo oficial; cidades e cassino continuam sem sprite de Pokémon.
+
+## 1.5.67 — Rust 2.0.2
+
+- Corrigida a transição Centro → caça no coletor: eventos campo e campo.init atualizam a mesma localização.
+- Corrigida a restauração da sprite após a imagem provisória de Centro; Larvitar não mantém a Pokébola no lugar da imagem.
+- Arena no Tauri usa exclusivamente o controle nativo de Eco temporário, preservando a preferência anterior ao sair.
+- A entrada no HUD solicita uma leitura atual do estado do jogo.
+
+## 1.5.66 — Rust 2.0.1
+
+- Corrigidas as permissões dos comandos da janela principal, que bloqueavam a leitura das contas, os controles da janela e a criação dos painéis.
+- Quatro painéis fixos; arraste e duplo clique na barra de título implementados para Tauri.
+- Consultas ao jogo agora devolvem resultados, inclusive assíncronos; carregamento e mensagens de estado usam eventos reais da WebView.
+- Master Blaster fecha a WebView antes de conectar o cliente headless, bloqueia sua recriação durante esse modo e só confirma sucesso após receber welcome do servidor.
+- Corrigida a extração do token do JSON de sessão; sessões headless são guardadas separadamente com DPAPI e vinculadas à conta.
+- Recarregar e navegar usam a API nativa; sprites do HUD recuperam a visibilidade quando os dados voltam.
+- Removida a promessa não medida de RAM no HUD; falhas de inicialização são exibidas.
+
+## 1.5.65
+
+- **Modo Ultra Eco Master Blaster Plus Pro Max (Headless Puro WebSocket):** Implementado serviço cliente nativo em Node.js (`src/domain/game-headless-service.js` e `gameHeadlessManager`) conectado diretamente ao WebSocket oficial do PokeIdle (`wss://pokeidle.io/ws`). Ao ativar o Master Blaster, a `<webview>` é desanexada do DOM e seu processo renderizador Chromium é encerrado, atingindo a marca de consumo ultra mínimo (<150 MB de RAM total para o aplicativo).
+- **Botões e Controles Independentes:** Adicionados botões dedicados no cabeçalho de cada painel: `⚡ Eco` (Modo Ultra Eco com Webview suspensa no fundo) e `🚀 Blaster` (Modo Master Blaster Headless puro). Dentro do HUD de batalha, um banner neon dinâmico identifica o modo ativo e permite alternar rapidamente entre Ultra Eco e Master Blaster com um clique.
+- **Restauração Transparente com Sessão Preservada:** O botão "Abrir jogo ↗" desconecta o socket headless de forma limpa, recria e anexa a `<webview>` no DOM com a partição persistente (`persist:contaX`) e restaura a interface completa do jogo instantaneamente sem deslogar a conta.
+- **Telemetria e Combate em Tempo Real:** O socket headless processa eventos de combate (`batalha`), captura, derrota de selvagens, spawn de shinies e telemetria de nível e inventário, transmitindo atualizações em tempo real para o HUD animado (Squirtle vs Vulpix) e para o painel de estatísticas do inicializador via IPC.
+
+## 1.5.64
+
+- **Modo Ultra Eco (Battle HUD):** Implementada interface visual animada de batalha individual por painel inspirada no cliente leve do jogo, substituindo a renderização do jogo pela arena de batalha leve (Pokémon líder vs Caça atual com sprites animados Gen 5 / Showdown, sombra dinâmica e badge de confronto).
+- **Redução de Consumo Webview:** Ao ativar o modo Ultra Eco no painel, a `<webview>` é ocultada do compositor DOM (`display: none !important`), o áudio é silenciado e os scripts de suspensão de renderização (`ultraScript`, `inGameEcoScript` e `ecoScript(1)`) são injetados diretamente, zerando o uso de GPU e o overhead gráfico da renderização Chromium.
+- **Painel de Controle e Métricas:** Adicionado botão individual de alternância `⚡ Eco` no cabeçalho de cada conta e botão de ação `Abrir jogo ↗` dentro do HUD para restauração instantânea sem recarregar a página. Painel exibe contadores em tempo real de tempo de caça, pokébolas, EXP/h e shinies, com botão para pausar ou retomar as animações dos sprites.
+- **Persistência de Estado:** Ativação do HUD e preferência de pausa de animação são mantidas individualmente por conta via `localStorage` (`bsh_mode_X` e `bsh_paused`).
+
+## 1.5.63
+
+- Kick: login normal em janela oficial por conta, usando o perfil e proxy existentes; sessão validada contra o usuário configurado antes da consulta de pontos.
+- Kick: consulta autenticada de saldos por canal a cada minuto e atualização manual; pontos locais antigos não são mais exibidos como saldo real, e falhas não viram zero.
+- Kick: implementado cliente headless de visualização real via WebSocket nativo (`websockets.kick.com`) transmitindo eventos periódicos de tempo assistido (`tracking.user.watch.livestream`) com handshakes de canal autenticados, permitindo acumular pontos de canal em segundo plano nos streamers parceiros oficiais que estiverem ao vivo.
+- Kick: abertura do canal oficial disponível via botão para assistir com player de vídeo ou resgatar bônus na página oficial.
+- Kick: auto-claim sinalizado como indisponível para resgate automático; consultas bloqueadas ou sessões divergentes exibem alertas explicativos no modal.
+
+## 1.5.62
+
+- Kick: atualizada a chave pública do Pusher, cuja configuração anterior retornava erro 4001 no cluster us2.
+- Kick: teste de conexão retorna erros do Pusher imediatamente e descreve o sucesso como conexão pública, sem validar login ou pontos.
+
+## 1.5.61
+
+- Kick: selo da sidebar reflete a ativação configurada, inclusive ao iniciar, conectar ou aguardar live; atualizações de conexão com o modal fechado não mudam o selo para OFF.
+
+## 1.5.60
+
+- Kick: status ao vivo lido do catálogo oficiais enviado pelo jogo; identidade pelo slug evita canais duplicados.
+- Kick: lista e filtros usam o último snapshot recebido, sem reativar canais offline com estados antigos; sincronização considera canais ao vivo com resgates ativos.
+
+## 1.5.59
+
+- Kick: corrigido o envio das configurações pelo preload ao processo principal, que impedia Salvar e Aplicar.
+
+## 1.5.58
+
+- Kick: botões de contas, filtros e rodapé seguem a paleta ativa, como na Twitch, inclusive seleção, hover e foco por teclado.
+- Kick: campo de token desabilitado com explicação do fluxo atual; teste identificado como conexão pública, sem prometer autenticação ou ganho de pontos.
+
 ## 1.5.57
 
 - Capturas: horário alinhado à borda direita da caixa de IVs, com coluna dimensionada para a data e hora completas.
+- **Bônus Kick Headless & Auto-Claim:** Implementado sistema completo de presença ultraleve (<3MB RAM) nos canais parceiros oficiais da Kick via Pusher WebSockets nativos, novo modal de gerenciamento visual para as 4 contas com credenciais criptografadas via `safeStorage`, auto-detecção de vínculo no jogo e rotina de Auto-Claim de bônus acumulativos de 1h (+15% EXP, Capture Boost e Secret Lure). Suporte completo aos 12 parceiros oficiais (canais ao vivo e offline com abas de filtro Todos/Ao Vivo/Offline), acompanhamento de pontos por canal com clique para ajuste manual e layout responsivo sem cortes laterais.
 
 ## 1.5.56
 

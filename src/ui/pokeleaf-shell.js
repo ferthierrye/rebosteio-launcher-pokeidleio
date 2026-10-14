@@ -158,7 +158,8 @@
     <button class="leaf-tool-item" data-old="autoSupplyBtn"><span class="ico">📦</span><span>Auto Supply</span><span class="leaf-tool-badge" id="leafAutoSupplyBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="dispatchHuntBtn"><span class="ico">🎯</span><span>Despachar Contas</span></button>
     <button class="leaf-tool-item" data-old="scriptsBtn"><span class="ico">🧩</span><span>Scripts & Extensões</span></button>
-    <button class="leaf-tool-item" data-old="twitchBonusBtn" id="leafTwitchBonusBtn"><span class="ico">🟣</span><span>Bônus Twitch</span><span class="leaf-tool-badge" id="leafTwitchBonusBadge">OFF</span></button>`;
+    <button class="leaf-tool-item" data-old="twitchBonusBtn" id="leafTwitchBonusBtn"><span class="ico">🟣</span><span>Bônus Twitch</span><span class="leaf-tool-badge" id="leafTwitchBonusBadge">OFF</span></button>
+    <button class="leaf-tool-item" data-old="kickBonusBtn" id="leafKickBonusBtn"><span class="ico">🟢</span><span>Bônus Kick</span><span class="leaf-tool-badge" id="leafKickBonusBadge">OFF</span></button>`;
   document.body.appendChild(tools);
   tools.inert = true;
 
@@ -366,15 +367,33 @@
     }
   }
   window.__syncTwitchBonusBadge = syncTwitchBonusBadge;
+
+  function syncKickBonusBadge() {
+    const badge = $('#leafKickBonusBadge');
+    if (!badge) return;
+    const st = window.__kickBonusStatus;
+    const isOn = st && st.masterEnabled;
+    const bonusTxt = window.__kickBonusTxt || '';
+    if (!isOn) {
+      badge.textContent = 'OFF';
+      badge.classList.remove('is-on');
+    } else {
+      badge.textContent = bonusTxt || 'ON';
+      badge.classList.add('is-on');
+    }
+  }
+  window.__syncKickBonusBadge = syncKickBonusBadge;
+
   syncAutoSellBadge();
   syncAutoSupplyBadge();
   syncTwitchBonusBadge();
+  syncKickBonusBadge();
 
   $('#leafToolsBtn').onclick = (e) => {
     e.stopPropagation();
     const opening = !document.body.classList.contains('leaf-tools-open');
     closeSurfaces();
-    if (opening) { document.body.classList.add('leaf-tools-open'); tools.inert = false; $('#leafToolsBtn').setAttribute('aria-expanded', 'true'); syncAutoSellBadge(); syncAutoSupplyBadge(); syncTwitchBonusBadge(); tools.querySelector('button')?.focus(); }
+    if (opening) { document.body.classList.add('leaf-tools-open'); tools.inert = false; $('#leafToolsBtn').setAttribute('aria-expanded', 'true'); syncAutoSellBadge(); syncAutoSupplyBadge(); syncTwitchBonusBadge(); syncKickBonusBadge(); tools.querySelector('button')?.focus(); }
   };
   $('#leafSettingsBtn').onclick = () => {
     const opening = !document.body.classList.contains('leaf-settings-open');
@@ -613,6 +632,11 @@
 
   function decoratePanels(arr) {
     $$('.panel',grid).forEach((p,i) => {
+      const r=arr.find(x=>x.i===i)||baseState(i);
+      if (window.PioBattleHud) {
+        window.PioBattleHud.mount(p, i);
+        window.PioBattleHud.update(p, i, r);
+      }
       const h=$('.panel-header',p); if(h) h.dataset.index=String(i+1).padStart(2,'0');
       const name = $('.panel-header .name',p);
       if (name && !name.querySelector('input')) {
@@ -623,7 +647,7 @@
       if (reload) reload.setAttribute('aria-label',`Recarregar conta ${i+1}`);
       if (expand) expand.setAttribute('aria-label',p.classList.contains('expanded')?`Voltar conta ${i+1} à grade`:`Expandir conta ${i+1}`);
       let f=$('.leaf-panel-footer',p); if(!f){ f=document.createElement('div');f.className='leaf-panel-footer';p.appendChild(f); }
-      const r=arr.find(x=>x.i===i)||baseState(i); const lead=getLead(r); const spr=pokeSprite(lead);
+      const lead=getLead(r); const spr=pokeSprite(lead);
       if (f.__leafSprite !== spr) {
         f.innerHTML = `${spr?`<img class="pf-sprite" src="${spr}" width="25" height="25" alt="" onerror="this.remove()">`:'<span class="pf-orbit" aria-hidden="true">◎</span>'}<span class="pf-hunt"><small>CAÇA ATUAL</small><b></b></span><span class="pf-spacer"></span><span class="pf-balls"><small>BOLAS</small><b></b></span>`;
         f.__leafSprite = spr;

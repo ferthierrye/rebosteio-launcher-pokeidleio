@@ -33,6 +33,7 @@
 #twitchBonusModal input::placeholder { color:var(--color-text-secondary)!important; opacity:1; }
 #twitchBonusModal .twitch-token-wrap input { padding-right:50px!important; }
 #twitchBonusModal .twitch-btn-eye { color:var(--color-text-secondary)!important; font-size:11px; }
+#twitchBonusModal .twitch-acc-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 #twitchBonusModal .twitch-btn-test, #twitchBonusModal .modal-actions button { background:var(--color-surface-2)!important; color:var(--color-text-primary)!important; border:1px solid var(--border-subtle)!important; border-radius:8px!important; padding:9px 12px!important; font-size:12px!important; }
 #twitchBonusModal .twitch-btn-test:hover, #twitchBonusModal .modal-actions button:hover { background:var(--color-surface-hover)!important; }
 #twitchBonusModal .modal-actions .primary { background:var(--color-accent-soft)!important; border-color:var(--color-accent)!important; }

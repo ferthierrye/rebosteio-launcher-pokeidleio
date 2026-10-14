@@ -2611,15 +2611,19 @@
   <link rel="stylesheet" href="src/ui/kuromi-xp.css">
   <link rel="stylesheet" href="src/ui/panel-controls.css">
   <link rel="stylesheet" href="src/ui/twitch-bonus.css">
+  <link rel="stylesheet" href="src/ui/kick-bonus.css">
   <link rel="stylesheet" href="src/ui/auto-supply-individual.css">
+  <link rel="stylesheet" href="src/ui/battle-hud.css">
   <script src="src/ui/runtime-performance.js"></script>
   <script src="src/ui/capture-value.js"></script>
+  <script src="src/ui/kick-reward-status.js"></script>
   <script src="src/ui/catch-nota.js"></script>
   <script src="src/ui/game-hud-layout.js"></script>
   <script src="src/ui/center-scheduler.js"></script>
   <script src="src/ui/themes/pokemon/all-pokemon.js"></script>
   <script src="src/ui/theme-manager.js"></script>
   <script src="src/ui/kuromi-xp.js"></script>
+  <script src="src/ui/battle-hud.js"></script>
 </head>
 
 <body>
@@ -2674,6 +2678,9 @@
         <button id="twitchBonusBtn"
           title="Presença automática nos chats dos streamers oficiais para bônus de +15% a +25% XP">🟣
           Bônus Twitch</button>
+        <button id="kickBonusBtn"
+          title="Consultar saldos reais e abrir canais oficiais da Kick">🟢
+          Bônus Kick</button>
         <button id="awake" title="Impede o PC de dormir enquanto farma (a tela ainda pode desligar)">💤 Dormir</button>
         <button id="minTray"
           title="O que o botão minimizar faz: esconder na bandeja ou minimizar normal na barra de tarefas">📥 Minimiza
@@ -3074,6 +3081,7 @@
                 <li>Volte ao launcher. Ao receber o vínculo do jogo, ele preenche o campo vazio com seu <b>login
                     Twitch</b>, que pode ser diferente do nick do treinador.</li>
               </ol>
+              <p><b>Dica:</b> Se a janela não abrir pelo jogo, use o botão <b>🔗 Vincular no Jogo (via Bot)</b> no cartão da conta para abrir a janela de autorização diretamente pelo launcher!</p>
               <p>Já tem um login salvo? Confira se corresponde ao vínculo.</p>
             </section>
             <section class="twitch-guide-step" data-guide-panel="1" hidden>
@@ -3156,6 +3164,141 @@
     </div>
   </div>
 
+  <!-- Modal Bônus Kick -->
+  <div id="kickBonusOverlay" style="display:none">
+    <div id="kickBonusModal" role="dialog" aria-labelledby="kickBonusTitle" aria-modal="true">
+      <div class="kick-bonus-head">
+        <h2>
+          <svg class="kick-bonus-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4 3h5v5.5l4-5.5h6l-5.8 7.5L20 21h-6.2l-4.8-7V21H4V3z" />
+          </svg>
+          <span id="kickBonusTitle">Bônus na Kick</span>
+        </h2>
+        <button type="button" class="kick-bonus-close" id="kickBonusCloseBtn" aria-label="Fechar Bônus Kick">&times;</button>
+      </div>
+      <p class="hint">Saldo real por canal, consultado com sua sessão da Kick. Entre na conta e assista pela página oficial para acumular pontos.</p>
+
+      <!-- Recompensas do Jogo Banner -->
+      <div class="kick-rewards-banner">
+        <div class="kick-reward-card">
+          <span class="kick-reward-icon">⚡</span>
+          <div class="kick-reward-info">
+            <span class="kick-reward-title">+15% EXP Boost</span>
+            <span class="kick-reward-cost">300 Pontos</span>
+            <span class="kick-reward-meta">1h por resgate (acumula)</span>
+          </div>
+        </div>
+        <div class="kick-reward-card">
+          <span class="kick-reward-icon">🎯</span>
+          <div class="kick-reward-info">
+            <span class="kick-reward-title">+15% Capture Boost</span>
+            <span class="kick-reward-cost">500 Pontos</span>
+            <span class="kick-reward-meta">1h por resgate (acumula)</span>
+          </div>
+        </div>
+        <div class="kick-reward-card">
+          <span class="kick-reward-icon">🔮</span>
+          <div class="kick-reward-info">
+            <span class="kick-reward-title">+15% Secret Lure</span>
+            <span class="kick-reward-cost">1.000 Pontos</span>
+            <span class="kick-reward-meta">1h por resgate (acumula)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Master Control & Auto-Claim Row -->
+      <div class="kick-global-card">
+        <div class="kick-global-row">
+          <label class="kick-toggle-label">
+            <input type="checkbox" id="kickMasterToggle">
+            <span class="kick-toggle-text">
+              <b>Ativar acompanhamento da Kick</b>
+              <small>Consultar o saldo autenticado a cada minuto; conexão pública ao chat não comprova ganho de pontos.</small>
+            </span>
+          </label>
+          <div class="kick-global-kpis">
+            <span class="kick-kpi-pill" id="kickGlobalStatusPill">● Desconectado</span>
+            <span class="kick-kpi-pill kick-kpi-bonus" id="kickGlobalBonusPill">Bônus no Jogo: Inativo</span>
+          </div>
+        </div>
+        <div class="kick-global-row" style="border-top:1px solid var(--border-subtle);padding-top:10px;">
+          <div class="kick-toggle-label" style="cursor:default;flex:1;min-width:0;">
+            <span class="kick-toggle-text" role="status" aria-live="polite">
+              <b id="kickRewardSummary">Buffs para resgatar: consulte o saldo</b>
+              <small id="kickRewardChannels"></small>
+              <small id="kickRedemptionStatus"></small>
+              <small>Saldo e disponibilidade conferidos na Kick. O buff aplicado é confirmado pelo jogo.</small>
+            </span>
+          </div>
+          <label class="kick-toggle-label"><input type="checkbox" id="kickAutoClaimToggle"><span class="kick-toggle-text"><b>Resgatar automaticamente</b><small>Gasta pontos no buff escolhido, uma vez por consulta.</small></span></label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label for="kickAutoClaimPriority" style="font-size:12px;color:var(--color-text-secondary);">Buff acompanhado:</label>
+            <select id="kickAutoClaimPriority" style="background:var(--color-bg-elevated);color:var(--color-text-primary);border:1px solid var(--border-subtle);border-radius:6px;padding:4px 8px;font-size:12px;">
+              <option value="exp">+15% EXP (300 pts)</option>
+              <option value="catch">+15% Capture (500 pts)</option>
+              <option value="lure">+15% Lure (1000 pts)</option>
+              <option value="all">Qualquer buff</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 Columns Layout -->
+      <div class="kick-bonus-content">
+        <!-- Guia & Vínculo -->
+        <aside class="kick-guide">
+          <h3 class="kick-side-title">Como Funciona</h3>
+          <div class="kick-guide-body">
+            <p><b>1. Vínculo no Jogo:</b> No PokeIdle, abra o menu <i>Treinador &gt; Bônus na Kick</i> e clique em <b>Vincular Kick</b>.</p>
+            <div class="kick-guide-alert">
+              ⚠️ <b>Atenção:</b> O vínculo é permanente para 1 treinador. Entre na Kick com a conta certa.
+            </div>
+            <p><b>2. Preencha seu usuário:</b> Ao vincular no jogo, o launcher reconhece automaticamente seu usuário Kick.</p>
+            <p><b>3. Pontos e Resgate:</b> Cada 300 pts viram 1h de EXP. Resgatar 3x dá 3h contínuas de bônus!</p>
+            <p><b>4. Saldo real:</b> Entre na Kick pela conta selecionada. O saldo é consultado a cada minuto. Para ganhar pontos, assista na página oficial; o chat público sozinho não confirma presença.</p>
+          </div>
+        </aside>
+
+        <!-- Suas Contas -->
+        <div class="kick-section">
+          <div class="kick-sec-head">
+            <label class="kick-sec-title">Suas Contas Kick</label>
+          </div>
+          <div class="kick-account-nav" id="kickAccountNav"></div>
+          <div id="kickAccountsContainer"></div>
+        </div>
+
+        <!-- Parceiros Oficiais na Kick -->
+        <div class="kick-section">
+          <div class="kick-sec-head">
+            <label class="kick-sec-title">Parceiros Oficiais</label>
+            <span class="kick-streamers-count" id="kickStreamersCount" style="font-size:12px;color:var(--color-text-secondary);">0 no ar</span>
+          </div>
+          <div class="kick-streamers-tabs" id="kickStreamersTabs">
+            <button type="button" class="kick-streamers-tab active" data-filter="all">Todos (<span id="kickCountAll">0</span>)</button>
+            <button type="button" class="kick-streamers-tab" data-filter="live">Ao Vivo (<span id="kickCountLive">0</span>)</button>
+            <button type="button" class="kick-streamers-tab" data-filter="off">Offline (<span id="kickCountOff">0</span>)</button>
+          </div>
+          <div class="kick-streamers-list" id="kickStreamersList">
+            <div style="font-size:12px;color:var(--color-text-secondary);padding:10px;">Carregando streamers...</div>
+          </div>
+          <p style="font-size:11px;color:var(--color-text-secondary);margin:8px 0 0;">Canais oficiais monitorados pelo PokeIdle.</p>
+        </div>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="kick-status-bar" id="kickBonusStatusBar" style="display:none">
+        <span id="kickBonusStatusText"></span>
+      </div>
+
+      <!-- Actions -->
+      <div class="modal-actions">
+        <button type="button" id="kickBonusCancel">Fechar</button>
+        <button type="button" id="kickBonusSave" class="primary">Salvar e Aplicar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Relatorio de erros: qualquer erro de JS da interface vai pro arquivo (via main.js)
     window.addEventListener('error', (e) => { try { window.pokeAPI.logError('interface', ((e.error && e.error.stack) || e.message || '?') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); } catch { } });
@@ -3221,6 +3364,7 @@
     const off = Array.from({ length: 4 }, () => false);
     const lastLogin = Array.from({ length: 4 }, () => 0); // cooldown do auto-login por painel (evita ressubmeter em loop)
     const isLoggingIn = Array.from({ length: 4 }, () => false); // rastreia autenticação ativa para impedir reloads do watchdog
+    const loginAttempts = Array(4).fill(0);
     const autoLoginTimer = Array.from({ length: 4 }, () => null); // debounce do auto-login por painel
     const trocou = Array.from({ length: 4 }, () => false); // e-mail ou senha editados em Treinadores e ainda nao usados: o Logar equipe reloga esse painel mesmo com a conta viva
     const deadT = Array.from({ length: 4 }, () => 0); // ticks seguidos sem sessao viva: o jogo nao navega sozinho pro login
@@ -3561,6 +3705,7 @@
       wv.partition = 'persist:conta' + (i + 1);
       panel.appendChild(wv);
       grid.appendChild(panel);
+      if (window.PioBattleHud) window.PioBattleHud.mount(panel, i);
       webviews.push(wv);
       const hasCreds = Boolean(accounts[i] && accounts[i].email && accounts[i].senha);
       if (!hasCreds) {
@@ -3619,7 +3764,9 @@
             const d = stSane(JSON.parse(m.slice(8)));
             if (d) {
               stCache[i] = { t: Date.now(), d };
+              if (d.live && !trocou[i]) confirmAccountOnline(i);
               if (d.twitch && typeof handleTwitchGameTelemetry === 'function') handleTwitchGameTelemetry(i, d.twitch);
+              if (d.kick && typeof handleKickGameTelemetry === 'function') handleKickGameTelemetry(i, d.kick);
               dtPush();
               if (cardsOn) {
                 clearTimeout(cardsRefreshTimer);
@@ -3630,8 +3777,8 @@
               pendA[i] = 0; // reset travamento: recebeu push, painel vivo
               if (d.live && d.sessStart) {
                 const o = sessSnap[i];
-                if (d.cid && o && o.cid && o.cid !== d.cid) { delete sessSnap[i]; wv.executeJavaScript(RESET_SESS + ';window.__poke&&window.__poke.ws&&(window.__poke.ws.analyzer=null)').catch(() => { }); }
-                else { sessSnap[i] = { s: { start: d.sessStart }, slug: d.hunt || '', cl: d.catchLog || [], sl: d.shinyLog || [], ab: null, cid: d.cid || (o && o.cid) || '', sk: !!d.sk, t: Date.now() }; }
+                // Observing a character never resets the game's session.
+                sessSnap[i] = { s: { start: d.sessStart }, slug: d.hunt || '', cl: d.catchLog || [], sl: d.shinyLog || [], ab: null, cid: d.cid || (o && o.cid) || '', sk: !!d.sk, t: Date.now() };
               }
               if (lastShiny[i] === undefined || d.shinyN < lastShiny[i]) lastShiny[i] = d.shinyN;
               else if (d.shinyN > lastShiny[i]) { const delta = d.shinyN - lastShiny[i]; lastShiny[i] = d.shinyN; addShinyLife(d.cid, delta); if (sndShinyOn) beepShiny(); if (alertsOn) alerta(i, 'msgShiny'); }
@@ -3689,7 +3836,7 @@
               wv.executeJavaScript('window.__pokeSeed=' + j).catch(() => { });
             }
           } catch { }
-          wv.executeJavaScript(`(()=>{const nL=v=>{const m=String(v==null?'':v).match(/[0-9]+([.,][0-9]+)?/);return m?+m[0].replace(',','.'):0};const nIvs=v=>{if(!v||typeof v!=='object')return null;const h=nL(v.hp),a=nL(v.atk),d=nL(v.def),sa=nL(v.spAtk!=null?v.spAtk:v.spa),sd=nL(v.spDef!=null?v.spDef:v.spd),sp=nL(v.speed!=null?v.speed:(v.spe!=null?v.spe:v.vel));return(h||a||d||sa||sd||sp)?{hp:h,atk:a,def:d,spAtk:sa,spDef:sd,speed:sp}:null;};const mk=()=>({start:Date.now(),kills:0,xp:0,balls:0,captures:0,drops:{},shinyN:0,shinySeen:{},shinyCapN:0,faintN:0,sellG:0,supGold:0,supN:0,gold:0,slug:'',hp:{}});const P=window.__poke||(window.__poke={ws:{},api:{},sess:mk(),prev:null,knownPokes:{},pokesBaselined:false,pokemonsMap:{},creaturesMap:{}});try{const sd=window.__pokeSeed;delete window.__pokeSeed;if(sd&&sd.s&&sd.s.start&&Date.now()-(sd.t||0)<600e3){P.sess=sd.s;if(sd.slug)P.lastSlug=sd.slug;if(sd.cl&&sd.cl.length)P.catchLog=sd.cl;if(sd.sl&&sd.sl.length)P.shinyLog=sd.sl;if(sd.ab&&typeof sd.ab==='object')P.anBase=sd.ab;}}catch(x){}let auth=null;const onMsg=e=>{try{if(typeof e.data==='string'){const m=JSON.parse(e.data);if(!m)return;const S=P.sess;if(m.t){P.ws[m.t]=m;if(m.t==='welcome'){const est=m.estado||{};P.estado=est;if(est.activeId!=null)P.activeId=est.activeId;P.trainerLevel=est.level||0;if(est.pokemons&&Array.isArray(est.pokemons)){est.pokemons.forEach(pk=>{if(pk&&pk.id)P.pokemonsMap[pk.id]=pk;});}if(est.automation&&typeof est.automation==='object'){P.automation=Object.assign(P.automation||{},est.automation);if(Array.isArray(est.automation.ballIds))P.autoBallIds=est.automation.ballIds;}if(m.hunts&&Array.isArray(m.hunts))P.hunts=m.hunts;P.cid=est.id||'';P.nick=est.nick||'';P.level=est.level||0;P.gold=est.gold||0;P.diamonds=est.diamonds||0;P.isVip=!!(est.loja&&est.loja.vip);P.clan=(est.guild&&(est.guild.nome||est.guild.name))||null;P.api['/api/characters/me']={character:{id:P.cid,name:P.nick,level:P.level,gold:P.gold,diamonds:P.diamonds,isVip:P.isVip,clan:P.clan}};if(m.catalogoBolas&&Array.isArray(m.catalogoBolas)){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.catalog=m.catalogoBolas.map(b=>({id:b.id,name:b.nome||b.name,priceGold:b.priceGold||0,p:b.priceGold||0,infinite:!!(b.infinite||b.infinito),catchRate:b.catchRate||1}));}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}if(est.items&&typeof est.items==='object'){P.ws.inventory={items:Object.keys(est.items).map(k=>({itemId:+k,quantity:est.items[k]}))};}if(est.pokemons&&Array.isArray(est.pokemons)){const H2={};P.ws.pokes={list:est.pokemons.map(pk=>{if(pk.slot!=null)H2[pk.id]=pk.hp;P.knownPokes[pk.id]=1;const ivs=nIvs(pk.ivs);return{id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivs:ivs,ivTotal:ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):null};})};S.hp=H2;P.pokesBaselined=true;if(P.catchLog&&P.catchLog.length){P.catchLog.forEach(c=>{if(!c.iv||c.iv===0||!c.ivs){const match=P.ws.pokes.list.find(x=>(c.id!=null&&x.id===c.id)||(x.name===c.n&&Math.abs(nL(x.quality)-nL(c.q))<0.02&&(x.ivTotal||x.ivs)));if(match){if(match.ivTotal&&(!c.iv||c.iv===0))c.iv=match.ivTotal;if(match.ivs&&!c.ivs)c.ivs=match.ivs;if(match.id&&!c.id)c.id=match.id;}}});}}if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}}else if(m.t==='campo.init'){const sl=m.slug||'';P.ws['campo.init']=m;P.ws['field-init']={slug:sl,name:sl};P.fiT=Date.now();if(sl&&sl!=='centro'&&!['cerulean','pewter','viridian','cassino','arena_pvp'].includes(sl)){if(P.lastSlug!==sl){P.prev=P.sess;P.prev.end=Date.now();P.sess=mk();P.sess.slug=sl;P.lastSlug=sl;}}}else if(m.t==='batalha'){(m.ev||[]).forEach(ev=>{if(ev.k==='spawn'){if(ev.shiny){S.shinyN=(S.shinyN||0)+1;S.shOpen=(S.shOpen||0)+1;S.shOpenT=Date.now();const SL=P.shinyLog=P.shinyLog||[];SL.push({n:ev.nome||'',sid:ev.speciesId||0,def:0,t:Date.now()});if(SL.length>30)SL.shift();}}else if(ev.k==='morte'){if(ev.quem==='selvagem'){S.kills++;S.lastKillT=Date.now();S.xp+=(ev.xp||ev.xpTreinador||0);S.gold=(S.gold||0)+(ev.ouro||0)+(ev.ouroVendaAuto||0);(ev.drops||[]).forEach(l=>{const k=l.itemId||l.nome;const d=S.drops[k]||(S.drops[k]={name:l.nome,qty:0});d.qty+=(l.qtd||l.qty||0);});if(ev.shiny){S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:ev.nome||'',sid:ev.speciesId||0,def:1,t:Date.now()});if(SL.length>30)SL.shift();}}else if(ev.quem==='jogador'){S.faintN=(S.faintN||0)+1;}}else if(ev.k==='bossMorto'){S.xp+=(ev.xp||ev.xpTreinador||0);S.gold=(S.gold||0)+(ev.valor||0);(ev.drops||[]).forEach(l=>{const k=l.itemId||l.nome;const d=S.drops[k]||(S.drops[k]={name:l.nome,qty:0});d.qty+=(l.qtd||l.qty||0);});}else if(ev.k==='cura'){S.supN=(S.supN||0)+1;const pId=ev.itemId;const pPrice=pId===200?50:pId===201?150:pId===202?400:pId===203?800:pId===204?1500:0;S.supGold=(S.supGold||0)+pPrice;}else if(ev.k==='revive'){S.supN=(S.supN||0)+1;const rId=ev.itemId;const rPrice=rId===205?600:rId===206?2500:0;S.supGold=(S.supGold||0)+rPrice;}else if(ev.k==='bola'){S.balls++;S.sinceCatch=(S.sinceCatch||0)+1;if(ev.ballId)P.lastBallId=ev.ballId;const bPrice=ev.ballId===1?5:ev.ballId===2?20:ev.ballId===3?50:130;S.supGold=(S.supGold||0)+bPrice;}else if(ev.k==='capturado'){if(P.captureValue)P.captureValue(ev.pokemon);S.captures++;S.lastCatchT=Date.now();S.sinceCatch=0;const pk=ev.pokemon||{};if(pk.shiny){S.shinyCapN=(S.shinyCapN||0)+1;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.nome||'',sid:pk.speciesId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}let iv=0;let ivs=nIvs(pk.ivs);if(ivs)iv=ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed;else if(pk.ivTotal!=null)iv=nL(pk.ivTotal);else if(pk.iv!=null)iv=nL(pk.iv);else if(pk.id!=null){const f=(P.ws.pokes&&P.ws.pokes.list||[]).find(x=>x.id===pk.id);if(f){if(f.ivTotal!=null)iv=nL(f.ivTotal);if(f.ivs&&!ivs)ivs=f.ivs;}}const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];const CL=P.catchLog=P.catchLog||[];CL.push({id:pk.id||null,n:pk.nome||pk.name||'?',sid:sd,iv:iv||0,ivs:ivs||null,q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift();}});}else if(m.t==='estado'){const est=m.estado||{};if(est.twitch&&typeof est.twitch==='object'){P.estado=P.estado||{};P.estado.twitch=est.twitch;}if(est.activeId!=null)P.activeId=est.activeId;if(est.level!=null){P.level=est.level;P.trainerLevel=est.level;}if(est.automation&&typeof est.automation==='object'){P.automation=Object.assign(P.automation||{},est.automation);if(Array.isArray(est.automation.ballIds))P.autoBallIds=est.automation.ballIds;}if(est.gold!=null){P.gold=est.gold;if(P.api['/api/characters/me']&&P.api['/api/characters/me'].character)P.api['/api/characters/me'].character.gold=est.gold;}if(est.level!=null){P.level=est.level;if(P.api['/api/characters/me']&&P.api['/api/characters/me'].character)P.api['/api/characters/me'].character.level=est.level;}if(est.xp!=null)P.xp=est.xp;if(est.items&&typeof est.items==='object'){P.ws.inventory={items:Object.keys(est.items).map(k=>({itemId:+k,quantity:est.items[k]}))};}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}if(est.centroMotivo==='morte'){S.faintN=(S.faintN||0)+1;}if(est.pkMud&&Array.isArray(est.pkMud)){P.ws.pokes=P.ws.pokes||{list:[]};est.pkMud.forEach(pk=>{if(pk&&pk.id){if(P.pokemonsMap[pk.id])Object.assign(P.pokemonsMap[pk.id],pk);else P.pokemonsMap[pk.id]=pk;}const ix=P.ws.pokes.list.findIndex(x=>x.id===pk.id);const was=S.hp[pk.id];if(pk.slot!=null&&pk.hp===0&&was>0)S.faintN=(S.faintN||0)+1;if(pk.slot!=null)S.hp[pk.id]=pk.hp;const ivs=nIvs(pk.ivs);const ivT=ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):(pk.ivTotal!=null?nL(pk.ivTotal):(pk.iv!=null?nL(pk.iv):null));const obj={id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivTotal:ivT,ivs:ivs};if(ix>=0)Object.assign(P.ws.pokes.list[ix],obj);else P.ws.pokes.list.push(obj);const isNew=P.pokesBaselined&&!P.knownPokes[pk.id];if(isNew){P.knownPokes[pk.id]=1;if(P.captureValue)P.captureValue(pk);else if(pk.sellValue)S.sellG=(S.sellG||0)+(pk.sellValue||0);}const CL=P.catchLog=P.catchLog||[];const pkNome=pk.nome||pk.name||'';const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];const cEntry=CL.slice().reverse().find(c=>(c.id!=null&&pk.id!=null&&c.id===pk.id)||(((!c.iv||c.iv===0)||!c.ivs)&&(c.n===pkNome||c.n==='?')&&(Date.now()-(c.t||0)<60000)));if(cEntry){if(pk.potencia!=null)cEntry.potencia=Number(pk.potencia);if(ivT!=null&&(!cEntry.iv||cEntry.iv===0))cEntry.iv=ivT;if(ivs&&!cEntry.ivs)cEntry.ivs=ivs;if(pk.id&&!cEntry.id)cEntry.id=pk.id;if(cEntry.n==='?'&&pkNome)cEntry.n=pkNome;if(!cEntry.q&&pk.quality!=null)cEntry.q=nL(pk.quality);if(!cEntry.sid&&sd)cEntry.sid=sd;}else if(isNew){CL.push({id:pk.id,n:pkNome||'?',sid:sd,iv:ivT||0,ivs:ivs||null,q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift();};});}}}if(m.type){P.ws[m.type]=m;if(m.type==='field-init'){const sl=m.slug||'';P.fiT=Date.now();if(P.lastSlug!==sl){P.prev=P.sess;P.prev.end=Date.now();P.sess=mk();P.sess.slug=sl;P.lastSlug=sl;P.ws.analyzer=null;P.anBase=null;try{if(P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'analyzer-get'}))}catch(x){}}}else if(m.type==='field-none'||m.type==='field-teleport-city'){P.ws['field-init']=null;}else if(m.type==='field-kill'){S.kills++;S.lastKillT=Date.now();S.xp+=m.xpGained||0;(m.loot||[]).forEach(l=>{const d=S.drops[l.itemId]||(S.drops[l.itemId]={name:l.name,qty:0});d.qty+=l.qty||0;});if(m.shiny){S.shinyN=(S.shinyN||0)+1;S.shOpen=(S.shOpen||0)+1;S.shOpenT=Date.now();const SL=P.shinyLog=P.shinyLog||[];SL.push({n:m.speciesName||m.name||'',sid:m.speciesId||m.pokeId||0,def:1,t:Date.now()});if(SL.length>30)SL.shift();}}else if(m.type==='catch-result'){S.balls++;S.sinceCatch=(S.sinceCatch||0)+1;if(m.ballId)P.lastBallId=m.ballId;const bbc=((P.ws.balls&&P.ws.balls.catalog)||[]).find(x=>x.id===m.ballId);if(bbc&&!bbc.infinite)S.supGold=(S.supGold||0)+(+bbc.priceGold||0);if(m.success){S.captures++;S.lastCatchT=Date.now();S.sinceCatch=0;}}else if(m.type==='field'){if(m.mobs&&m.mobs.length){for(const mb of m.mobs){if(mb&&+mb.maxHp>0)(S.slotHp=S.slotHp||{})[mb.slot]=+mb.maxHp;}}if(m.hits&&m.hits.length){const bm={};for(const h of m.hits){if(!(h&&h.slot>=0&&+h.amount>0))continue;const k=String(h.move||'?').slice(0,24);const c=bm[k]||(bm[k]={n:0,sl:{},p:0,pn:0});c.n++;c.sl[h.slot]=1;const mh=S.slotHp&&S.slotHp[h.slot];if(mh>0&&!h.crit&&!h.blocked){c.p+=(+h.amount)/mh;c.pn++;}}S.mv=S.mv||{};const ag=Date.now();for(const k in bm){const c=bm[k],ns=Object.keys(c.sl).length;let T=S.mv[k];if(!T){const ks=Object.keys(S.mv);if(ks.length>=12){const v=ks.sort((p,q)=>(S.mv[p].t||0)-(S.mv[q].t||0))[0],X=S.mvX=S.mvX||{n:0,s:0,a:0};X.n+=S.mv[v].n;X.s+=S.mv[v].s;X.a+=S.mv[v].a;delete S.mv[v];}T=S.mv[k]={n:0,s:0,a:0,p:0,pn:0,t:ag};}T.t=ag;T.n+=c.n;T.p+=c.p;T.pn+=c.pn;if(ns>=2){T.s++;T.a+=ns;}}}}else if(m.type==='poke-delta'){const pk=m.poke;if(pk){const LP=P.ws.pokes&&P.ws.pokes.list;if(LP){const ix=LP.findIndex(x=>x.id===pk.id);if(ix>=0)Object.assign(LP[ix],pk);else LP.push(pk);}const was=S.hp[pk.id];if(pk.team&&pk.hp===0&&was>0)S.faintN++;if(pk.team)S.hp[pk.id]=pk.hp;else delete S.hp[pk.id];if(P.pokesBaselined&&!P.knownPokes[pk.id]){if(P.captureValue)P.captureValue(pk);else S.sellG=(S.sellG||0)+(pk.sellValue||0);if(pk.shiny){S.shinyCapN++;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.name||'',sid:pk.speciesId||pk.pokeId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}const CL=P.catchLog=P.catchLog||[];const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];CL.push({n:pk.name||'?',iv:nL(pk.ivTotal),q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift()}P.knownPokes[pk.id]=1;}}else if(m.type==='pokes'){const H2={};(m.list||[]).forEach(pk=>{const was=S.hp[pk.id];if(pk.team&&pk.hp===0&&was>0)S.faintN++;if(pk.team)H2[pk.id]=pk.hp;if(P.pokesBaselined&&!P.knownPokes[pk.id]){if(P.captureValue)P.captureValue(pk);else S.sellG=(S.sellG||0)+(pk.sellValue||0);if(pk.shiny){S.shinyCapN++;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.name||'',sid:pk.speciesId||pk.pokeId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}const CL=P.catchLog=P.catchLog||[];const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];CL.push({n:pk.name||'?',iv:nL(pk.ivTotal),q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift()}P.knownPokes[pk.id]=1;});S.hp=H2;if(!P.pokesBaselined)P.pokesBaselined=true;}else if(m.type==='inventory'){let now=0;const doc0=P.api['/game/items.json']||P.api['/assets/items.json'];const cat0={};if(doc0&&doc0.items)doc0.items.forEach(it=>cat0[it.id]=it);const cur={};(m.items||[]).forEach(it=>{if(it.itemId===59195)now=it.quantity||0;const c=(cat0[it.itemId]||{}).category;if(c==='heal'||c==='potion'||c==='revive')cur[it.itemId]=it.quantity||0;});if(S.supBase){for(const id in S.supBase){const antes=S.supBase[id]||0,agora=(cur[id]!=null?cur[id]:0),d=antes-agora;if(d>0){const it=cat0[id]||{};S.supGold=(S.supGold||0)+d*(it.priceGold||it.npcPrice||0);S.supN=(S.supN||0)+d;}}}S.supBase=cur;if(S.picBase==null){S.picBase=now;}else{if(now>S.picBase){const doc=P.api['/game/items.json']||P.api['/assets/items.json'];const it=doc&&doc.items&&doc.items.find(x=>x.id===59195);const d=S.drops[59195]||(S.drops[59195]={name:(it&&it.name)||'Rare Pokémon Picture',qty:0});d.qty+=(now-S.picBase);}S.picBase=now;}}else if(m.type==='chat'||m.type==='history'){const chS=(mm)=>{try{if(!mm||!mm.body)return;const re=/\\[poke!([A-Za-z0-9_-]+)\\]/g;let mt;while((mt=re.exec(mm.body))){try{const j=JSON.parse(atob(mt[1].replace(/-/g,'+').replace(/_/g,'/')));if(j&&j.k==='poke'){const CS=P.chatShares=P.chatShares||[];const N=(v)=>{v=Number(v);return isFinite(v)?v:0;};const cn=String(j.n||'?').slice(0,40),cf=String(mm.fromName||'').slice(0,40);if(!CS.some(c=>c.n===cn&&c.iv===N(j.iv)&&c.lv===N(j.lv)&&c.fr===cf)){CS.push({fr:cf,n:cn,sh:!!j.sh,lv:N(j.lv),q:N(j.q),iv:N(j.iv),pw:N(j.pw),t:Date.now()});if(CS.length>15)CS.shift();}}}catch(x){}}}catch(x){}};if(m.type==='chat')chS(m.msg);else['world','trade','help'].forEach(c2=>(m[c2]||[]).forEach(chS));}}}}catch(x){}};const hookSocket=s=>{if(!s||s.__pokeHooked)return;s.__pokeHooked=true;P.sock=s;const origSend=s.send;s.send=function(data){try{if(typeof data==='string'){const sent=JSON.parse(data);if(sent&&sent.t==='hello'){P.nick=sent.nick;P.token=sent.token;}else if(sent&&sent.t==='auto.set'){P.automation=Object.assign(P.automation||{},sent);if(Array.isArray(sent.ballIds))P.autoBallIds=sent.ballIds;}else if(sent&&sent.t==='ball.throw'&&sent.ballId){P.lastBallId=sent.ballId;}else if(sent&&sent.t==='team.active'&&sent.pokemonId){P.activeId=sent.pokemonId;}}}catch(x){}return origSend.apply(this,arguments);};s.addEventListener('message',onMsg);};const OW=window.WebSocket;window.WebSocket=function(...ar){const s=Reflect.construct(OW,ar);hookSocket(s);return s;};window.WebSocket.prototype=OW.prototype;const origProtoSend=OW.prototype.send;OW.prototype.send=function(...args){try{hookSocket(this);}catch(x){}return origProtoSend.apply(this,args);};['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k=>{try{window.WebSocket[k]=OW[k]}catch(x){}});try{if(window.ws)hookSocket(window.ws);if(window.__ws)hookSocket(window.__ws);if(window.estado&&window.estado.ws)hookSocket(window.estado.ws);}catch(x){}try{const est=(window.estado&&(window.estado.eu||window.estado))||{};if(est&&(est.id||est.nick)){P.estado=P.estado||est;if(est.id)P.cid=est.id;if(est.nick)P.nick=est.nick;if(est.level!=null)P.level=est.level;if(est.gold!=null)P.gold=est.gold;if(est.diamonds!=null)P.diamonds=est.diamonds;if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}if(est.pokemons&&Array.isArray(est.pokemons)){est.pokemons.forEach(pk=>{if(pk&&pk.id)P.pokemonsMap[pk.id]=pk;});if(!P.ws.pokes){const H2={};P.ws.pokes={list:est.pokemons.map(pk=>{if(pk.slot!=null)H2[pk.id]=pk.hp;P.knownPokes[pk.id]=1;const ivs=nIvs(pk.ivs);return{id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivs:ivs,ivTotal:ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):null};})};P.sess.hp=H2;P.pokesBaselined=true;}}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}}}catch(x){}const OF=window.fetch;window.fetch=function(...a){try{let H;const r0=a[0],ini=a[1];if(ini&&ini.headers)H=ini.headers;else if(r0&&typeof r0==='object'&&r0.headers)H=r0.headers;if(H){let au;if(typeof H.get==='function')au=H.get('authorization');else au=H.Authorization||H.authorization;if(au){auth=au;P.auth=au;}}}catch(x){}const p=OF.apply(this,a);try{let u=(a[0]&&a[0].url)||a[0];if(typeof u==='string'&&(/\\/api\\/|items\\.json/.test(u)||u.includes('items.json'))){p.then(r=>{const c=r.clone();c.json().then(j=>{const key=u.split('?')[0];if(u.includes('creatures.json')){P.creatures=j.creatures||[];(j.creatures||[]).forEach(cr=>{if(cr&&cr.pokeId!=null)P.creaturesMap[cr.pokeId]=cr;});}if(u.includes('items.json')){P.api['/game/items.json']=j;P.api['/assets/items.json']=j;}if(key==='/api/game/used-balls'){if(j&&j.pokemons){const cs=new Set(Array.isArray(j.caught)?j.caught:[]);P.shinyEnc=j.pokemons.reduce((s,p)=>s+(p.shiny?(+p.total||0):0),0);P.usedList=j.pokemons.map(p=>({sid:p.speciesId||p.dexId,name:p.name,shiny:!!p.shiny,attempts:p.attempts||0,total:p.total||0,caught:!!p.caught||(p.shiny?(+p.total||0)>(+p.attempts||0):cs.has(p.dexId!=null?p.dexId:p.speciesId))}));}return;}if(key==='/api/characters/me'){if(!j||!j.character){P.meMiss=(P.meMiss||0)+1;return;}P.meMiss=0;const o0=P.api[key];if(o0&&o0.character&&o0.character.id!==j.character.id){P.knownPokes={};P.pokesBaselined=false;}}P.api[key]=j}).catch(()=>{})}).catch(()=>{})}}catch(x){}return p;};const poll=()=>{try{while(P.catchLog&&P.catchLog.length>400)P.catchLog.shift();while(P.shinyLog&&P.shinyLog.length>300)P.shinyLog.shift();const isPokeIdle=typeof location!=='undefined'&&location.hostname.includes('pokeidle.io');if(!isPokeIdle){const o=auth?{headers:{Authorization:auth}}:undefined;fetch('/api/characters/me',o).catch(()=>{});fetch('/api/game/used-balls',o).catch(()=>{});try{if(P.sock&&P.sock.readyState===1){P.sock.send(JSON.stringify({type:'inv-get'}));P.sock.send(JSON.stringify({type:'analyzer-get'}));}}catch(x){}}else{try{if(P.sock&&P.sock.readyState===1){P.sock.send(JSON.stringify({t:'ping'}));}}catch(x){}}}catch(x){}};setInterval(poll,30000);setTimeout(poll,9000);let bT=0;setInterval(()=>{try{const B=P.ws.boosts,lv=!!(B&&Array.isArray(B.boosts)&&B.boosts.some(b=>b&&b.live));if((lv||++bT%5===0)&&P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'boosts-refresh'}));}catch(x){}},25000);})()`).catch(() => { }); // coletor de estado + sessao dual-protocol (pokeidle.io WS + legado)
+          wv.executeJavaScript(`(()=>{const nL=v=>{const m=String(v==null?'':v).match(/[0-9]+([.,][0-9]+)?/);return m?+m[0].replace(',','.'):0};const nIvs=v=>{if(!v||typeof v!=='object')return null;const h=nL(v.hp),a=nL(v.atk),d=nL(v.def),sa=nL(v.spAtk!=null?v.spAtk:v.spa),sd=nL(v.spDef!=null?v.spDef:v.spd),sp=nL(v.speed!=null?v.speed:(v.spe!=null?v.spe:v.vel));return(h||a||d||sa||sd||sp)?{hp:h,atk:a,def:d,spAtk:sa,spDef:sd,speed:sp}:null;};const mk=()=>({start:Date.now(),kills:0,xp:0,balls:0,captures:0,drops:{},shinyN:0,shinySeen:{},shinyCapN:0,faintN:0,sellG:0,supGold:0,supN:0,gold:0,slug:'',hp:{}});const P=window.__poke||(window.__poke={ws:{},api:{},sess:mk(),prev:null,knownPokes:{},pokesBaselined:false,pokemonsMap:{},creaturesMap:{}});try{const sd=window.__pokeSeed;delete window.__pokeSeed;if(sd&&sd.s&&sd.s.start&&Date.now()-(sd.t||0)<600e3){P.sess=sd.s;if(sd.slug)P.lastSlug=sd.slug;if(sd.cl&&sd.cl.length)P.catchLog=sd.cl;if(sd.sl&&sd.sl.length)P.shinyLog=sd.sl;if(sd.ab&&typeof sd.ab==='object')P.anBase=sd.ab;}}catch(x){}let auth=null;const onMsg=e=>{try{if(typeof e.data==='string'){const m=JSON.parse(e.data);if(!m)return;const S=P.sess;if(m.t){P.ws[m.t]=m;if(m.t==='welcome'){const est=m.estado||{};P.estado=est;if(est.activeId!=null)P.activeId=est.activeId;P.trainerLevel=est.level||0;if(est.pokemons&&Array.isArray(est.pokemons)){est.pokemons.forEach(pk=>{if(pk&&pk.id)P.pokemonsMap[pk.id]=pk;});}if(est.automation&&typeof est.automation==='object'){P.automation=Object.assign(P.automation||{},est.automation);if(Array.isArray(est.automation.ballIds))P.autoBallIds=est.automation.ballIds;}if(m.hunts&&Array.isArray(m.hunts))P.hunts=m.hunts;P.cid=est.id||'';P.nick=est.nick||'';P.level=est.level||0;P.gold=est.gold||0;P.diamonds=est.diamonds||0;P.isVip=!!(est.loja&&est.loja.vip);P.clan=(est.guild&&(est.guild.nome||est.guild.name))||null;P.api['/api/characters/me']={character:{id:P.cid,name:P.nick,level:P.level,gold:P.gold,diamonds:P.diamonds,isVip:P.isVip,clan:P.clan}};if(m.catalogoBolas&&Array.isArray(m.catalogoBolas)){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.catalog=m.catalogoBolas.map(b=>({id:b.id,name:b.nome||b.name,priceGold:b.priceGold||0,p:b.priceGold||0,infinite:!!(b.infinite||b.infinito),catchRate:b.catchRate||1}));}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}if(est.items&&typeof est.items==='object'){P.ws.inventory={items:Object.keys(est.items).map(k=>({itemId:+k,quantity:est.items[k]}))};}if(est.pokemons&&Array.isArray(est.pokemons)){const H2={};P.ws.pokes={list:est.pokemons.map(pk=>{if(pk.slot!=null)H2[pk.id]=pk.hp;P.knownPokes[pk.id]=1;const ivs=nIvs(pk.ivs);return{id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivs:ivs,ivTotal:ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):null};})};S.hp=H2;P.pokesBaselined=true;if(P.catchLog&&P.catchLog.length){P.catchLog.forEach(c=>{if(!c.iv||c.iv===0||!c.ivs){const match=P.ws.pokes.list.find(x=>(c.id!=null&&x.id===c.id)||(x.name===c.n&&Math.abs(nL(x.quality)-nL(c.q))<0.02&&(x.ivTotal||x.ivs)));if(match){if(match.ivTotal&&(!c.iv||c.iv===0))c.iv=match.ivTotal;if(match.ivs&&!c.ivs)c.ivs=match.ivs;if(match.id&&!c.id)c.id=match.id;}}});}}if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}}else if(m.t==='campo.init'){const sl=m.slug||'';P.ws['campo.init']=m;P.ws['field-init']={slug:sl,name:sl};P.fiT=Date.now();if(sl&&sl!=='centro'&&!['cerulean','pewter','viridian','cassino','arena_pvp'].includes(sl)){if(P.lastSlug!==sl){P.prev=P.sess;P.prev.end=Date.now();P.sess=mk();P.sess.slug=sl;P.lastSlug=sl;}}}else if(m.t==='batalha'){(m.ev||[]).forEach(ev=>{if(ev.k==='spawn'){if(ev.shiny){S.shinyN=(S.shinyN||0)+1;S.shOpen=(S.shOpen||0)+1;S.shOpenT=Date.now();const SL=P.shinyLog=P.shinyLog||[];SL.push({n:ev.nome||'',sid:ev.speciesId||0,def:0,t:Date.now()});if(SL.length>30)SL.shift();}}else if(ev.k==='morte'){if(ev.quem==='selvagem'){S.kills++;S.lastKillT=Date.now();S.xp+=(ev.xp||ev.xpTreinador||0);S.gold=(S.gold||0)+(ev.ouro||0)+(ev.ouroVendaAuto||0);(ev.drops||[]).forEach(l=>{const k=l.itemId||l.nome;const d=S.drops[k]||(S.drops[k]={name:l.nome,qty:0});d.qty+=(l.qtd||l.qty||0);});if(ev.shiny){S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:ev.nome||'',sid:ev.speciesId||0,def:1,t:Date.now()});if(SL.length>30)SL.shift();}}else if(ev.quem==='jogador'){S.faintN=(S.faintN||0)+1;}}else if(ev.k==='bossMorto'){S.xp+=(ev.xp||ev.xpTreinador||0);S.gold=(S.gold||0)+(ev.valor||0);(ev.drops||[]).forEach(l=>{const k=l.itemId||l.nome;const d=S.drops[k]||(S.drops[k]={name:l.nome,qty:0});d.qty+=(l.qtd||l.qty||0);});}else if(ev.k==='cura'){S.supN=(S.supN||0)+1;const pId=ev.itemId;const pPrice=pId===200?50:pId===201?150:pId===202?400:pId===203?800:pId===204?1500:0;S.supGold=(S.supGold||0)+pPrice;}else if(ev.k==='revive'){S.supN=(S.supN||0)+1;const rId=ev.itemId;const rPrice=rId===205?600:rId===206?2500:0;S.supGold=(S.supGold||0)+rPrice;}else if(ev.k==='bola'){S.balls++;S.sinceCatch=(S.sinceCatch||0)+1;if(ev.ballId)P.lastBallId=ev.ballId;const bPrice=ev.ballId===1?5:ev.ballId===2?20:ev.ballId===3?50:130;S.supGold=(S.supGold||0)+bPrice;}else if(ev.k==='capturado'){if(P.captureValue)P.captureValue(ev.pokemon);S.captures++;S.lastCatchT=Date.now();S.sinceCatch=0;const pk=ev.pokemon||{};if(pk.shiny){S.shinyCapN=(S.shinyCapN||0)+1;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.nome||'',sid:pk.speciesId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}let iv=0;let ivs=nIvs(pk.ivs);if(ivs)iv=ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed;else if(pk.ivTotal!=null)iv=nL(pk.ivTotal);else if(pk.iv!=null)iv=nL(pk.iv);else if(pk.id!=null){const f=(P.ws.pokes&&P.ws.pokes.list||[]).find(x=>x.id===pk.id);if(f){if(f.ivTotal!=null)iv=nL(f.ivTotal);if(f.ivs&&!ivs)ivs=f.ivs;}}const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];const CL=P.catchLog=P.catchLog||[];CL.push({id:pk.id||null,n:pk.nome||pk.name||'?',sid:sd,iv:iv||0,ivs:ivs||null,q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift();}});}else if(m.t==='estado'){const est=m.estado||{};if(est.twitch&&typeof est.twitch==='object'){P.estado=P.estado||{};P.estado.twitch=est.twitch;}if(est.kick&&typeof est.kick==='object'){P.estado=P.estado||{};P.estado.kick=est.kick;}if(est.activeId!=null)P.activeId=est.activeId;if(est.level!=null){P.level=est.level;P.trainerLevel=est.level;}if(est.automation&&typeof est.automation==='object'){P.automation=Object.assign(P.automation||{},est.automation);if(Array.isArray(est.automation.ballIds))P.autoBallIds=est.automation.ballIds;}if(est.gold!=null){P.gold=est.gold;if(P.api['/api/characters/me']&&P.api['/api/characters/me'].character)P.api['/api/characters/me'].character.gold=est.gold;}if(est.level!=null){P.level=est.level;if(P.api['/api/characters/me']&&P.api['/api/characters/me'].character)P.api['/api/characters/me'].character.level=est.level;}if(est.xp!=null)P.xp=est.xp;if(est.items&&typeof est.items==='object'){P.ws.inventory={items:Object.keys(est.items).map(k=>({itemId:+k,quantity:est.items[k]}))};}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}if(est.centroMotivo==='morte'){S.faintN=(S.faintN||0)+1;}if(est.pkMud&&Array.isArray(est.pkMud)){P.ws.pokes=P.ws.pokes||{list:[]};est.pkMud.forEach(pk=>{if(pk&&pk.id){if(P.pokemonsMap[pk.id])Object.assign(P.pokemonsMap[pk.id],pk);else P.pokemonsMap[pk.id]=pk;}const ix=P.ws.pokes.list.findIndex(x=>x.id===pk.id);const was=S.hp[pk.id];if(pk.slot!=null&&pk.hp===0&&was>0)S.faintN=(S.faintN||0)+1;if(pk.slot!=null)S.hp[pk.id]=pk.hp;const ivs=nIvs(pk.ivs);const ivT=ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):(pk.ivTotal!=null?nL(pk.ivTotal):(pk.iv!=null?nL(pk.iv):null));const obj={id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivTotal:ivT,ivs:ivs};if(ix>=0)Object.assign(P.ws.pokes.list[ix],obj);else P.ws.pokes.list.push(obj);const isNew=P.pokesBaselined&&!P.knownPokes[pk.id];if(isNew){P.knownPokes[pk.id]=1;if(P.captureValue)P.captureValue(pk);else if(pk.sellValue)S.sellG=(S.sellG||0)+(pk.sellValue||0);}const CL=P.catchLog=P.catchLog||[];const pkNome=pk.nome||pk.name||'';const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];const cEntry=CL.slice().reverse().find(c=>(c.id!=null&&pk.id!=null&&c.id===pk.id)||(((!c.iv||c.iv===0)||!c.ivs)&&(c.n===pkNome||c.n==='?')&&(Date.now()-(c.t||0)<60000)));if(cEntry){if(pk.potencia!=null)cEntry.potencia=Number(pk.potencia);if(ivT!=null&&(!cEntry.iv||cEntry.iv===0))cEntry.iv=ivT;if(ivs&&!cEntry.ivs)cEntry.ivs=ivs;if(pk.id&&!cEntry.id)cEntry.id=pk.id;if(cEntry.n==='?'&&pkNome)cEntry.n=pkNome;if(!cEntry.q&&pk.quality!=null)cEntry.q=nL(pk.quality);if(!cEntry.sid&&sd)cEntry.sid=sd;}else if(isNew){CL.push({id:pk.id,n:pkNome||'?',sid:sd,iv:ivT||0,ivs:ivs||null,q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift();};});}}}if(m.type){P.ws[m.type]=m;if(m.type==='field-init'){const sl=m.slug||'';P.fiT=Date.now();if(P.lastSlug!==sl){P.prev=P.sess;P.prev.end=Date.now();P.sess=mk();P.sess.slug=sl;P.lastSlug=sl;P.ws.analyzer=null;P.anBase=null;try{if(P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'analyzer-get'}))}catch(x){}}}else if(m.type==='field-none'||m.type==='field-teleport-city'){P.ws['field-init']=null;}else if(m.type==='field-kill'){S.kills++;S.lastKillT=Date.now();S.xp+=m.xpGained||0;(m.loot||[]).forEach(l=>{const d=S.drops[l.itemId]||(S.drops[l.itemId]={name:l.name,qty:0});d.qty+=l.qty||0;});if(m.shiny){S.shinyN=(S.shinyN||0)+1;S.shOpen=(S.shOpen||0)+1;S.shOpenT=Date.now();const SL=P.shinyLog=P.shinyLog||[];SL.push({n:m.speciesName||m.name||'',sid:m.speciesId||m.pokeId||0,def:1,t:Date.now()});if(SL.length>30)SL.shift();}}else if(m.type==='catch-result'){S.balls++;S.sinceCatch=(S.sinceCatch||0)+1;if(m.ballId)P.lastBallId=m.ballId;const bbc=((P.ws.balls&&P.ws.balls.catalog)||[]).find(x=>x.id===m.ballId);if(bbc&&!bbc.infinite)S.supGold=(S.supGold||0)+(+bbc.priceGold||0);if(m.success){S.captures++;S.lastCatchT=Date.now();S.sinceCatch=0;}}else if(m.type==='field'){if(m.mobs&&m.mobs.length){for(const mb of m.mobs){if(mb&&+mb.maxHp>0)(S.slotHp=S.slotHp||{})[mb.slot]=+mb.maxHp;}}if(m.hits&&m.hits.length){const bm={};for(const h of m.hits){if(!(h&&h.slot>=0&&+h.amount>0))continue;const k=String(h.move||'?').slice(0,24);const c=bm[k]||(bm[k]={n:0,sl:{},p:0,pn:0});c.n++;c.sl[h.slot]=1;const mh=S.slotHp&&S.slotHp[h.slot];if(mh>0&&!h.crit&&!h.blocked){c.p+=(+h.amount)/mh;c.pn++;}}S.mv=S.mv||{};const ag=Date.now();for(const k in bm){const c=bm[k],ns=Object.keys(c.sl).length;let T=S.mv[k];if(!T){const ks=Object.keys(S.mv);if(ks.length>=12){const v=ks.sort((p,q)=>(S.mv[p].t||0)-(S.mv[q].t||0))[0],X=S.mvX=S.mvX||{n:0,s:0,a:0};X.n+=S.mv[v].n;X.s+=S.mv[v].s;X.a+=S.mv[v].a;delete S.mv[v];}T=S.mv[k]={n:0,s:0,a:0,p:0,pn:0,t:ag};}T.t=ag;T.n+=c.n;T.p+=c.p;T.pn+=c.pn;if(ns>=2){T.s++;T.a+=ns;}}}}else if(m.type==='poke-delta'){const pk=m.poke;if(pk){const LP=P.ws.pokes&&P.ws.pokes.list;if(LP){const ix=LP.findIndex(x=>x.id===pk.id);if(ix>=0)Object.assign(LP[ix],pk);else LP.push(pk);}const was=S.hp[pk.id];if(pk.team&&pk.hp===0&&was>0)S.faintN++;if(pk.team)S.hp[pk.id]=pk.hp;else delete S.hp[pk.id];if(P.pokesBaselined&&!P.knownPokes[pk.id]){if(P.captureValue)P.captureValue(pk);else S.sellG=(S.sellG||0)+(pk.sellValue||0);if(pk.shiny){S.shinyCapN++;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.name||'',sid:pk.speciesId||pk.pokeId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}const CL=P.catchLog=P.catchLog||[];const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];CL.push({n:pk.name||'?',iv:nL(pk.ivTotal),q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift()}P.knownPokes[pk.id]=1;}}else if(m.type==='pokes'){const H2={};(m.list||[]).forEach(pk=>{const was=S.hp[pk.id];if(pk.team&&pk.hp===0&&was>0)S.faintN++;if(pk.team)H2[pk.id]=pk.hp;if(P.pokesBaselined&&!P.knownPokes[pk.id]){if(P.captureValue)P.captureValue(pk);else S.sellG=(S.sellG||0)+(pk.sellValue||0);if(pk.shiny){S.shinyCapN++;if(S.shOpen>0&&Date.now()-S.shOpenT<60e3)S.shOpen--;else S.shinyN=(S.shinyN||0)+1;const SL=P.shinyLog=P.shinyLog||[];SL.push({n:pk.name||'',sid:pk.speciesId||pk.pokeId||0,cap:1,t:Date.now()});if(SL.length>30)SL.shift();}const CL=P.catchLog=P.catchLog||[];const sd=pk.speciesId||pk.pokeId||0;const UL=P.usedList||[];CL.push({n:pk.name||'?',iv:nL(pk.ivTotal),q:nL(pk.quality),potencia:pk.potencia!=null?Number(pk.potencia):null,sh:!!pk.shiny,fx:!!(sd&&UL.length&&!UL.some(u=>u.sid===sd&&u.caught)),t:Date.now()});if(CL.length>50)CL.shift()}P.knownPokes[pk.id]=1;});S.hp=H2;if(!P.pokesBaselined)P.pokesBaselined=true;}else if(m.type==='inventory'){let now=0;const doc0=P.api['/game/items.json']||P.api['/assets/items.json'];const cat0={};if(doc0&&doc0.items)doc0.items.forEach(it=>cat0[it.id]=it);const cur={};(m.items||[]).forEach(it=>{if(it.itemId===59195)now=it.quantity||0;const c=(cat0[it.itemId]||{}).category;if(c==='heal'||c==='potion'||c==='revive')cur[it.itemId]=it.quantity||0;});if(S.supBase){for(const id in S.supBase){const antes=S.supBase[id]||0,agora=(cur[id]!=null?cur[id]:0),d=antes-agora;if(d>0){const it=cat0[id]||{};S.supGold=(S.supGold||0)+d*(it.priceGold||it.npcPrice||0);S.supN=(S.supN||0)+d;}}}S.supBase=cur;if(S.picBase==null){S.picBase=now;}else{if(now>S.picBase){const doc=P.api['/game/items.json']||P.api['/assets/items.json'];const it=doc&&doc.items&&doc.items.find(x=>x.id===59195);const d=S.drops[59195]||(S.drops[59195]={name:(it&&it.name)||'Rare Pokémon Picture',qty:0});d.qty+=(now-S.picBase);}S.picBase=now;}}else if(m.type==='chat'||m.type==='history'){const chS=(mm)=>{try{if(!mm||!mm.body)return;const re=/\\[poke!([A-Za-z0-9_-]+)\\]/g;let mt;while((mt=re.exec(mm.body))){try{const j=JSON.parse(atob(mt[1].replace(/-/g,'+').replace(/_/g,'/')));if(j&&j.k==='poke'){const CS=P.chatShares=P.chatShares||[];const N=(v)=>{v=Number(v);return isFinite(v)?v:0;};const cn=String(j.n||'?').slice(0,40),cf=String(mm.fromName||'').slice(0,40);if(!CS.some(c=>c.n===cn&&c.iv===N(j.iv)&&c.lv===N(j.lv)&&c.fr===cf)){CS.push({fr:cf,n:cn,sh:!!j.sh,lv:N(j.lv),q:N(j.q),iv:N(j.iv),pw:N(j.pw),t:Date.now()});if(CS.length>15)CS.shift();}}}catch(x){}}}catch(x){}};if(m.type==='chat')chS(m.msg);else['world','trade','help'].forEach(c2=>(m[c2]||[]).forEach(chS));}}}}catch(x){}};const hookSocket=s=>{if(!s||s.__pokeHooked)return;s.__pokeHooked=true;P.sock=s;const origSend=s.send;s.send=function(data){try{if(typeof data==='string'){const sent=JSON.parse(data);if(sent&&sent.t==='hello'){P.nick=sent.nick;P.token=sent.token;}else if(sent&&sent.t==='auto.set'){P.automation=Object.assign(P.automation||{},sent);if(Array.isArray(sent.ballIds))P.autoBallIds=sent.ballIds;}else if(sent&&sent.t==='ball.throw'&&sent.ballId){P.lastBallId=sent.ballId;}else if(sent&&sent.t==='team.active'&&sent.pokemonId){P.activeId=sent.pokemonId;}}}catch(x){}return origSend.apply(this,arguments);};s.addEventListener('message',onMsg);};const OW=window.WebSocket;window.WebSocket=function(...ar){const s=Reflect.construct(OW,ar);hookSocket(s);return s;};window.WebSocket.prototype=OW.prototype;const origProtoSend=OW.prototype.send;OW.prototype.send=function(...args){try{hookSocket(this);}catch(x){}return origProtoSend.apply(this,args);};['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k=>{try{window.WebSocket[k]=OW[k]}catch(x){}});try{if(window.ws)hookSocket(window.ws);if(window.__ws)hookSocket(window.__ws);if(window.estado&&window.estado.ws)hookSocket(window.estado.ws);}catch(x){}try{const est=(window.estado&&(window.estado.eu||window.estado))||{};if(est&&(est.id||est.nick)){P.estado=P.estado||est;if(est.id)P.cid=est.id;if(est.nick)P.nick=est.nick;if(est.level!=null)P.level=est.level;if(est.gold!=null)P.gold=est.gold;if(est.diamonds!=null)P.diamonds=est.diamonds;if(est.huntSlug){P.lastSlug=est.huntSlug;P.ws['field-init']={slug:est.huntSlug,name:est.huntSlug};}if(est.pokemons&&Array.isArray(est.pokemons)){est.pokemons.forEach(pk=>{if(pk&&pk.id)P.pokemonsMap[pk.id]=pk;});if(!P.ws.pokes){const H2={};P.ws.pokes={list:est.pokemons.map(pk=>{if(pk.slot!=null)H2[pk.id]=pk.hp;P.knownPokes[pk.id]=1;const ivs=nIvs(pk.ivs);return{id:pk.id,speciesId:pk.speciesId,name:pk.nome||pk.name,level:pk.level,shiny:!!pk.shiny,quality:pk.quality,team:pk.slot!=null,slot:pk.slot,hp:pk.hp,maxHp:pk.maxHp,ivs:ivs,ivTotal:ivs?(ivs.hp+ivs.atk+ivs.def+ivs.spAtk+ivs.spDef+ivs.speed):null};})};P.sess.hp=H2;P.pokesBaselined=true;}}if(est.balls&&typeof est.balls==='object'){P.ws.balls=P.ws.balls||{counts:{},catalog:[]};P.ws.balls.counts=est.balls;}}}catch(x){}const OF=window.fetch;window.fetch=function(...a){try{let H;const r0=a[0],ini=a[1];if(ini&&ini.headers)H=ini.headers;else if(r0&&typeof r0==='object'&&r0.headers)H=r0.headers;if(H){let au;if(typeof H.get==='function')au=H.get('authorization');else au=H.Authorization||H.authorization;if(au){auth=au;P.auth=au;}}}catch(x){}const p=OF.apply(this,a);try{let u=(a[0]&&a[0].url)||a[0];if(typeof u==='string'&&(/\\/api\\/|items\\.json/.test(u)||u.includes('items.json'))){p.then(r=>{const c=r.clone();c.json().then(j=>{const key=u.split('?')[0];if(u.includes('creatures.json')){P.creatures=j.creatures||[];(j.creatures||[]).forEach(cr=>{if(cr&&cr.pokeId!=null)P.creaturesMap[cr.pokeId]=cr;});}if(u.includes('items.json')){P.api['/game/items.json']=j;P.api['/assets/items.json']=j;}if(key==='/api/game/used-balls'){if(j&&j.pokemons){const cs=new Set(Array.isArray(j.caught)?j.caught:[]);P.shinyEnc=j.pokemons.reduce((s,p)=>s+(p.shiny?(+p.total||0):0),0);P.usedList=j.pokemons.map(p=>({sid:p.speciesId||p.dexId,name:p.name,shiny:!!p.shiny,attempts:p.attempts||0,total:p.total||0,caught:!!p.caught||(p.shiny?(+p.total||0)>(+p.attempts||0):cs.has(p.dexId!=null?p.dexId:p.speciesId))}));}return;}if(key==='/api/characters/me'){if(!j||!j.character){P.meMiss=(P.meMiss||0)+1;return;}P.meMiss=0;const o0=P.api[key];if(o0&&o0.character&&o0.character.id!==j.character.id){P.knownPokes={};P.pokesBaselined=false;}}P.api[key]=j}).catch(()=>{})}).catch(()=>{})}}catch(x){}return p;};const poll=()=>{try{while(P.catchLog&&P.catchLog.length>400)P.catchLog.shift();while(P.shinyLog&&P.shinyLog.length>300)P.shinyLog.shift();const isPokeIdle=typeof location!=='undefined'&&location.hostname.includes('pokeidle.io');if(!isPokeIdle){const o=auth?{headers:{Authorization:auth}}:undefined;fetch('/api/characters/me',o).catch(()=>{});fetch('/api/game/used-balls',o).catch(()=>{});try{if(P.sock&&P.sock.readyState===1){P.sock.send(JSON.stringify({type:'inv-get'}));P.sock.send(JSON.stringify({type:'analyzer-get'}));}}catch(x){}}else{try{if(P.sock&&P.sock.readyState===1){P.sock.send(JSON.stringify({t:'ping'}));}}catch(x){}}}catch(x){}};setInterval(poll,30000);setTimeout(poll,9000);let bT=0;setInterval(()=>{try{const B=P.ws.boosts,lv=!!(B&&Array.isArray(B.boosts)&&B.boosts.some(b=>b&&b.live));if((lv||++bT%5===0)&&P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'boosts-refresh'}));}catch(x){}},25000);})()`).catch(() => { }); // coletor de estado + sessao dual-protocol (pokeidle.io WS + legado)
           // volta pra hunt (experimental): so se a conta estava farmando ha pouco (kill nos ultimos 10 min),
           wv.executeJavaScript('(' + PioCaptureValue.installCaptureValue.toString() + ')()').catch(() => { });
           // nota N= e potencia de cada captura, com a conta do proprio jogo (so roda no painel,
@@ -3703,7 +3850,8 @@
             }
           } catch { }
           const isHiddenFam = panel.classList.contains('leaf-fam-hidden');
-          if (isHiddenFam) {
+          const isHud = panel.classList.contains('is-hud-active');
+          if (isHiddenFam || isHud) {
             wv.executeJavaScript(ecoScript(1)).catch(() => { });
             wv.executeJavaScript(inGameEcoScript(true)).catch(() => { });
             wv.executeJavaScript(ultraScript(true)).catch(() => { });
@@ -3955,6 +4103,8 @@
       const dot = panel.querySelector('.dot');
       const status = panel.querySelector('.status');
       off[i] = !off[i];
+      loginAttempts[i]++;
+      isLoggingIn[i] = false;
       panel.classList.toggle('off', off[i]);
       if (off[i]) { webviews[i].src = 'about:blank'; dot.className = 'dot off'; status.textContent = t('stOff'); }
       else { dot.className = 'dot'; status.textContent = t('stLoading'); webviews[i].src = START_URL; }
@@ -3963,6 +4113,7 @@
     async function stopAndClearAccount(i, keepName = false) {
       if (i < 0 || i >= 4) return;
       const prevName = keepName ? ((accounts[i] && accounts[i].name) || '') : '';
+      loginAttempts[i]++;
       accounts[i] = Object.assign(blank(), { name: prevName, proxy: accounts[i]?.proxy || null });
       trocou[i] = false;
       isLoggingIn[i] = false;
@@ -4007,6 +4158,20 @@
       document.dispatchEvent(new CustomEvent('piw-account-removed', { detail: { index: i } }));
     }
 
+    function accountIsLive(i) {
+      const cached = stCache[i];
+      return !trocou[i] && !!(cached?.d.live && Date.now() - cached.t < 15000);
+    }
+    function confirmAccountOnline(i) {
+      if (off[i]) return;
+      loginAttempts[i]++;
+      isLoggingIn[i] = false;
+      if (autoLoginTimer[i]) { clearTimeout(autoLoginTimer[i]); autoLoginTimer[i] = null; }
+      const panel = grid.children[i];
+      const status = panel?.querySelector('.status'), dot = panel?.querySelector('.dot');
+      if (status) status.textContent = t('stOnline');
+      if (dot) dot.className = 'dot ok';
+    }
     function loginPanel(wv, cred) {
       try {
         const idx = webviews.indexOf(wv);
@@ -4027,6 +4192,12 @@
         }
         if (idx >= 0 && typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = true;
         if (idx >= 0 && window.pokeAPI && typeof window.pokeAPI.camoufoxLogin === 'function' && cred && cred.email && cred.senha) {
+          const attempt = ++loginAttempts[idx];
+          const email = cred.email, password = cred.senha;
+          const currentAttempt = () => loginAttempts[idx] === attempt && !off[idx] &&
+            accounts[idx]?.email === email && accounts[idx]?.senha === password &&
+            !window.PioBattleHud?.isBlasterActive(idx);
+
           const p = grid.children[idx];
           const st = p ? p.querySelector('.status') : null;
           const curUrl = (typeof wv.getURL === 'function') ? (wv.getURL() || '') : (wv.src || '');
@@ -4038,7 +4209,7 @@
               handled = true;
               wv.removeEventListener('dom-ready', onReady);
               setTimeout(() => {
-                if (off[idx] || !accounts[idx] || !accounts[idx].email || !accounts[idx].senha) return;
+                if (!currentAttempt()) return;
                 if (typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
                 loginPanel(wv, cred);
               }, 600);
@@ -4047,7 +4218,7 @@
             setTimeout(() => {
               if (!handled) {
                 handled = true;
-                if (off[idx] || !accounts[idx] || !accounts[idx].email || !accounts[idx].senha) return;
+                if (!currentAttempt()) return;
                 if (typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
                 loginPanel(wv, cred);
               }
@@ -4063,6 +4234,8 @@
           const hasSock = !!(window.__poke && window.__poke.sock && window.__poke.sock.readyState === 1);
           return { isOnline: isOnline || hasSock, hasLoginForm, isReady };
         })()`).then((check) => {
+            if (!currentAttempt()) return;
+            if (accountIsLive(idx)) { confirmAccountOnline(idx); return; }
             if (off[idx] || !accounts[idx] || !accounts[idx].email || !accounts[idx].senha) {
               if (typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
               return;
@@ -4092,6 +4265,8 @@
               password: cred.senha,
               proxy: cred.proxy
             }).then((res) => {
+              if (!currentAttempt()) return;
+              if (accountIsLive(idx)) { confirmAccountOnline(idx); return; }
               if (off[idx] || !accounts[idx] || !accounts[idx].email || !accounts[idx].senha) {
                 if (typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
                 return;
@@ -4133,6 +4308,7 @@
                   }
                   return 'esperar';
                 })()`).then((result) => {
+                    if (!currentAttempt()) return;
                     if (st && (result === 'ja-online' || result === 'sessao-entrarComo' || result === 'sessao-conectar')) {
                       st.textContent = t('stOnline');
                     }
@@ -4156,11 +4332,12 @@
             }).catch(() => {
             }).finally(() => {
               setTimeout(() => {
-                if (idx >= 0 && typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
+                if (loginAttempts[idx] === attempt) isLoggingIn[idx] = false;
               }, 8000);
             });
             return;
           }).catch(() => {
+            if (!currentAttempt()) return;
             setTimeout(() => {
               if (idx >= 0 && typeof isLoggingIn !== 'undefined') isLoggingIn[idx] = false;
             }, 3000);
@@ -4462,7 +4639,7 @@
     // Push de estado: no Simples o app nao pergunta pras 4 contas de N em N segundos; cada jogo
     // publica a propria leitura (a mesma do READ_STATE) periodicamente e o app so escuta (__PGST__).
     // funcao, nao constante: o READ_STATE so e declarado mais abaixo; no dom-ready ja existe
-    const PUSH_STATE = () => '(()=>{if(window.__pgPush)return;window.__pgPush=1;setInterval(()=>{try{if(localStorage.getItem("cfg-economia")==="1"&&!document.documentElement.classList.contains("modo-economia")){const eb=document.getElementById("hunt-eco");if(eb){try{localStorage.setItem("cfg-economia","0");}catch(x){}eb.click();try{localStorage.setItem("cfg-economia","1");}catch(x){}}}else if(localStorage.getItem("cfg-economia")==="0"&&document.documentElement.classList.contains("modo-economia")){const eb=document.getElementById("eco-sair")||document.querySelector(".eco-sair,#eco-painel button,.eco-painel button,[data-eco-sair],.btn-eco-sair");if(eb)eb.click();else{const he=document.getElementById("hunt-eco");if(he)he.click();document.documentElement.classList.remove("modo-economia");}try{if(window.PIXI&&window.PIXI.Ticker&&window.PIXI.Ticker.shared&&!window.PIXI.Ticker.shared.started)window.PIXI.Ticker.shared.start();}catch(x){}}}catch(x){}try{const d=' + READ_FAST + ';if(d&&d.ok){console.clear();console.log("__PGST__"+JSON.stringify(d))}}catch(x){}},4000)})()'; // clear: o console do painel guardava cada push (ate 10 MB)
+    const PUSH_STATE = () => '(()=>{if(window.__pgPush)return;window.__pgPush=1;setInterval(()=>{try{if(localStorage.getItem("cfg-economia")==="1"&&!document.documentElement.classList.contains("modo-economia")){const eb=document.getElementById("hunt-eco");if(eb){try{localStorage.setItem("cfg-economia","0");}catch(x){}eb.click();try{localStorage.setItem("cfg-economia","1");}catch(x){}}}else if(localStorage.getItem("cfg-economia")==="0"&&document.documentElement.classList.contains("modo-economia")){const eb=document.getElementById("eco-sair")||document.querySelector(".eco-sair,[data-eco-sair],.btn-eco-sair");if(eb)eb.click();else{const he=document.getElementById("hunt-eco");if(he)he.click();document.documentElement.classList.remove("modo-economia");}try{if(window.PIXI&&window.PIXI.Ticker&&window.PIXI.Ticker.shared&&!window.PIXI.Ticker.shared.started)window.PIXI.Ticker.shared.start();}catch(x){}}}catch(x){}try{const d=' + READ_FAST + ';if(d&&d.ok){console.clear();console.log("__PGST__"+JSON.stringify(d))}}catch(x){}},4000)})()'; // clear: o console do painel guardava cada push (ate 10 MB)
     // Captcha do login (Cloudflare Turnstile): o widget e um iframe de outra origem, entao o Chromium
     // da a ele um processo renderer proprio (site isolation). Depois do login ninguem o usa, mas ele
     // segue vivo e crescendo: 200-370 MB POR CONTA, ~1,2 GB com 4 contas, mais da metade da RAM do
@@ -4553,6 +4730,48 @@
           oficiais: Array.isArray(d.twitch.oficiais) ? d.twitch.oficiais.slice(0, 20).map(o => ({ login: String(o.login || '').slice(0, 40), bonus: !!o.bonus })) : []
         };
       }
+      if (d.kick && typeof d.kick === 'object') {
+        const parseKickStreamer = (item, defaultLive = false) => {
+          if (!item) return null;
+          if (typeof item === 'string') {
+            const clean = item.trim().toLowerCase().replace(/^@/, '').slice(0, 40);
+            return clean ? { login: clean, espectadores: 0, aoVivo: defaultLive, ativo: true } : null;
+          }
+          const login = String(item.slug || item.login || item.channel || item.name || '').trim().toLowerCase().replace(/^@/, '').slice(0, 40);
+          if (!login) return null;
+          return {
+            login,
+            espectadores: num(item.espectadores || item.viewers),
+            aoVivo: (item.aoVivo ?? item.online ?? item.live ?? defaultLive) === true,
+            ativo: item.ativo !== false
+          };
+        };
+
+        const rawOficiais = Array.isArray(d.kick.oficiais) ? d.kick.oficiais : (Array.isArray(d.kick.canais) ? d.kick.canais : []);
+        const rawOffline = Array.isArray(d.kick.offline) ? d.kick.offline : [];
+        const rawLives = Array.isArray(d.kick.lives) ? d.kick.lives : [];
+
+        const sanitizedPontosPorCanal = {};
+        if (d.kick.pontosPorCanal && typeof d.kick.pontosPorCanal === 'object') {
+          for (const [k, v] of Object.entries(d.kick.pontosPorCanal)) {
+            const cleanK = String(k || '').trim().toLowerCase().replace(/^@/, '');
+            if (cleanK) sanitizedPontosPorCanal[cleanK] = num(v);
+          }
+        }
+
+        d.kick = {
+          login: String(d.kick.login || '').slice(0, 40),
+          vinculado: !!(d.kick.vinculado || d.kick.login),
+          pontos: num(d.kick.pontos),
+          pontosPorCanal: sanitizedPontosPorCanal,
+          bonusExp: num(d.kick.bonusExp),
+          bonusCatch: num(d.kick.bonusCatch),
+          bonusLure: num(d.kick.bonusLure),
+          lives: rawLives.map(item => parseKickStreamer(item, true)).filter(Boolean),
+          oficiais: rawOficiais.map(item => parseKickStreamer(item)).filter(Boolean),
+          offline: rawOffline.map(item => parseKickStreamer(item)).filter(Boolean)
+        };
+      }
       return d;
     }
     const ecoBtn = document.getElementById('eco');
@@ -4606,7 +4825,7 @@
           if (sock && sock.readyState === 1) sock.send(JSON.stringify({ t: 'cliente.economia', ativo: true }));
         } catch(e) {}
       } else {
-        const btn = document.getElementById('eco-sair') || document.querySelector('.eco-sair, #eco-painel button, .eco-painel button, [data-eco-sair], .btn-eco-sair');
+        const btn = document.getElementById('eco-sair') || document.querySelector('.eco-sair, [data-eco-sair], .btn-eco-sair');
         if (btn) {
           btn.click();
         } else if (document.documentElement.classList.contains('modo-economia')) {
@@ -4628,6 +4847,10 @@
     } catch (e) {}
   })()`;
     const ecoFps = () => leve() ? 1 : (eco ? 15 : 0);
+    window.ultraScript = ultraScript;
+    window.inGameEcoScript = inGameEcoScript;
+    window.ecoScript = ecoScript;
+    window.ecoFps = ecoFps;
     function applyEco() {
       ecoBtn.textContent = eco ? t('eco') : t('ecoOff');
       ecoBtn.classList.toggle('on', eco);
@@ -4635,7 +4858,8 @@
         if (off[i]) return;
         try {
           const isHiddenFam = grid.children[i]?.classList.contains('leaf-fam-hidden');
-          if (isHiddenFam) {
+          const isHud = grid.children[i]?.classList.contains('is-hud-active');
+          if (isHiddenFam || isHud) {
             w.executeJavaScript(ecoScript(1)).catch(() => { });
             w.executeJavaScript(inGameEcoScript(true)).catch(() => { });
             w.executeJavaScript(ultraScript(true)).catch(() => { });
@@ -7209,7 +7433,7 @@
             <div class="twitch-acc-header">
               <div class="twitch-acc-title">
                 <span class="twitch-acc-badge">${i + 1}</span>
-                <span class="twitch-acc-name">${shownAccountName(i, (accounts[i] && accounts[i].name) || defName(i))}</span>
+                <span class="twitch-acc-name">${kickEscape(shownAccountName(i, (accounts[i] && accounts[i].name) || defName(i)))}</span>
                 ${inGameBonus}
               </div>
               <label class="twitch-acc-toggle" title="Ativar esta conta na Twitch">
@@ -7229,7 +7453,7 @@
             <div class="twitch-acc-inputs">
               <div class="twitch-input-group">
                 <label for="twitchUser${i}">Usuário Twitch</label>
-                <input id="twitchUser${i}" type="text" autocomplete="off" spellcheck="false" placeholder="Login da Twitch" value="${acc.username || ''}" data-acc-user="${i}">
+                <input id="twitchUser${i}" type="text" autocomplete="off" spellcheck="false" placeholder="Login da Twitch" value="${kickEscape(acc.username || '')}" data-acc-user="${i}">
               </div>
               <p class="twitch-field-help">Use a mesma Twitch vinculada a esta conta no jogo.</p>
               <div class="twitch-input-group">
@@ -7243,6 +7467,7 @@
             <p class="twitch-field-help">Cole o Access token gerado pela Twitch. Ele ficará oculto neste painel.</p>
             <div class="twitch-acc-actions">
               <button type="button" class="twitch-btn-test" data-test-acc="${i}">Testar Conexão</button>
+              <button type="button" class="twitch-btn-test twitch-btn-link-game" data-link-twitch="${i}" title="Vincular a Twitch desta conta diretamente pelo bot">🔗 Vincular no Jogo (via Bot)</button>
               <span class="twitch-test-result" aria-live="polite" id="twitchTestResult${i}"></span>
             </div>
           `;
@@ -7277,6 +7502,12 @@
             if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
           };
         });
+        twitchAccountsGrid.querySelectorAll('[data-link-twitch]').forEach(btn => {
+          btn.onclick = async () => {
+            const idx = +btn.dataset.linkTwitch;
+            await linkTwitchInGame(idx);
+          };
+        });
         twitchAccountsGrid.querySelectorAll('[data-test-acc]').forEach(btn => {
           btn.onclick = async () => {
             const idx = +btn.dataset.testAcc;
@@ -7305,6 +7536,73 @@
       }
 
       renderTwitchStreamersList();
+    }
+
+    async function linkTwitchInGame(accIdx) {
+      const wv = webviews[accIdx];
+      const resEl = document.getElementById(`twitchTestResult${accIdx}`);
+      if (!wv) {
+        if (resEl) { resEl.textContent = 'Painel do jogo não encontrado.'; resEl.style.color = '#ef4444'; }
+        return;
+      }
+      if (resEl) { resEl.textContent = 'Iniciando vínculo...'; resEl.style.color = '#eab308'; }
+      try {
+        const res = await wv.executeJavaScript(`(() => {
+          try {
+            const P = window.__poke;
+            const btn = document.querySelector('#tw-vincular');
+            if (btn) { btn.click(); return { ok: true, triggered: 'button' }; }
+
+            let twBtn = document.querySelector('.tr-ativo.twitch, button.tw-conectar, [data-modal="twitch"], button.twitch');
+            if (!twBtn) {
+              twBtn = [...document.querySelectorAll('button')].find(b =>
+                (b.className && typeof b.className === 'string' && (b.className.includes('twitch') || b.className.includes('tw-'))) ||
+                (b.textContent && b.textContent.toLowerCase().includes('twitch'))
+              );
+            }
+            if (twBtn) {
+              twBtn.click();
+              const btnApos = document.querySelector('#tw-vincular');
+              if (btnApos) { btnApos.click(); return { ok: true, triggered: 'modal_and_button' }; }
+              return { ok: true, triggered: 'modal_opened' };
+            }
+
+            let token = null;
+            try {
+              const sL = JSON.parse(localStorage.getItem('sessao') || 'null');
+              if (sL && sL.token) token = sL.token;
+            } catch {}
+            if (!token && P && P.token) token = P.token;
+            if (!token && typeof sessaoSalva === 'function') token = sessaoSalva()?.token;
+            if (!token && window.estado && window.estado.token) token = window.estado.token;
+
+            if (token) {
+              const disp = localStorage.getItem('id-dispositivo') || (typeof idDispositivo === 'function' ? idDispositivo() : '');
+              return fetch('/auth/twitch/iniciar', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ token, dispositivo: disp })
+              }).then(r => r.json()).then(j => {
+                if (j.url) return { ok: true, url: j.url };
+                return { ok: false, error: j.erro || 'Falha ao gerar link de autorização' };
+              });
+            }
+            return { ok: false, error: 'Faça login no jogo nesta conta primeiro.' };
+          } catch (err) {
+            return { ok: false, error: err.message };
+          }
+        })()`);
+        if (res && res.ok) {
+          if (resEl) { resEl.textContent = 'Janela de vínculo aberta!'; resEl.style.color = '#22c55e'; }
+          if (res.url && window.pokeAPI?.openAuthWindow) {
+            window.pokeAPI.openAuthWindow(accIdx, res.url).catch(() => {});
+          }
+        } else {
+          if (resEl) { resEl.textContent = (res && res.error) || 'Erro ao iniciar vínculo'; resEl.style.color = '#ef4444'; }
+        }
+      } catch (e) {
+        if (resEl) { resEl.textContent = e.message; resEl.style.color = '#ef4444'; }
+      }
     }
 
     function renderTwitchStreamersList() {
@@ -7429,6 +7727,13 @@
       if (!twData) return;
       twitchCachedGameData[accIndex] = twData;
 
+      if (twData.login && twitchBonusConfig.accounts[accIndex] && !twitchBonusConfig.accounts[accIndex].username) {
+        twitchBonusConfig.accounts[accIndex].username = twData.login;
+        if (window.pokeAPI && window.pokeAPI.twitchSaveCreds) {
+          window.pokeAPI.twitchSaveCreds(twitchBonusConfig).catch(() => {});
+        }
+      }
+
       const allLiveLogins = new Set();
       twitchCachedGameData.forEach(tw => {
         if (!tw || !Array.isArray(tw.lives)) return;
@@ -7450,6 +7755,797 @@
       }
     }
     window.handleTwitchGameTelemetry = handleTwitchGameTelemetry;
+
+    const kickCachedGameData = [];
+    const KICK_OFFICIAL_PARTNERS = [
+      'biscoitao', 'surskity', 'clovaobengalol', 'luccatv', 'matta',
+      'souonailo', 'pokeidle', 'faasii', 'febatista', 'fiaspogames', 'lukao', 'vitor_p'
+    ];
+    let kickStreamersFilter = 'all';
+    let kickLatestChannelSnapshot = null;
+
+    function kickChannelsFromSnapshot(k) {
+      if (!k) return [];
+      // Current game schema: oficiais carries both online and offline channels.
+      if (Array.isArray(k.oficiais) && k.oficiais.length) return k.oficiais;
+      return [...(k.offline || []), ...(k.lives || [])];
+    }
+
+    function handleKickGameTelemetry(accIndex, kickData) {
+      if (!kickData) return;
+      kickCachedGameData[accIndex] = kickData;
+      const linkedUsername = kickData.login && (kickData.vinculado || kickData.login) ? String(kickData.login).toLowerCase().replace(/^@/, '') : '';
+      if (kickBonusConfig.accounts[accIndex] && kickBonusConfig.accounts[accIndex].linkedUsername !== linkedUsername) {
+        kickBonusConfig.accounts[accIndex].linkedUsername = linkedUsername;
+        kickBonusConfig.accounts[accIndex].gameLinked = !!linkedUsername;
+        if (window.pokeAPI?.kickSaveCreds) window.pokeAPI.kickSaveCreds(kickBonusConfig).catch(() => {});
+      }
+
+      if ((kickData.vinculado || kickData.login) && kickBonusConfig.accounts[accIndex]) {
+        kickBonusConfig.accounts[accIndex].gameLinked = true;
+      }
+
+      if (kickData.login && kickBonusConfig.accounts[accIndex] && !kickBonusConfig.accounts[accIndex].username) {
+        kickBonusConfig.accounts[accIndex].username = kickData.login;
+        if (window.pokeAPI && window.pokeAPI.kickSaveCreds) {
+          window.pokeAPI.kickSaveCreds(kickBonusConfig).catch(() => {});
+        }
+      }
+
+      kickLatestChannelSnapshot = kickData;
+      if (window.pokeAPI?.kickSetPointChannels) {
+        window.pokeAPI.kickSetPointChannels(kickChannelsFromSnapshot(kickData).map(c => c.login)).catch(() => {});
+      }
+      const allLiveLogins = new Set(kickChannelsFromSnapshot(kickData)
+        .filter(c => c.aoVivo === true && c.ativo !== false)
+        .map(c => c.login));
+      if (window.pokeAPI && window.pokeAPI.kickSyncLives) {
+        window.pokeAPI.kickSyncLives(Array.from(allLiveLogins));
+      }
+
+      if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+        renderKickBonusUI();
+        renderKickStreamersList();
+      }
+    }
+    window.handleKickGameTelemetry = handleKickGameTelemetry;
+
+    // ===== Bônus Kick: sessão oficial e consulta autenticada =====
+    const kickBonusOverlay = document.getElementById('kickBonusOverlay');
+    const kickBonusBtn = document.getElementById('kickBonusBtn');
+    const kickBonusCloseBtn = document.getElementById('kickBonusCloseBtn');
+    const kickBonusCancel = document.getElementById('kickBonusCancel');
+    const kickBonusSave = document.getElementById('kickBonusSave');
+    const kickMasterToggle = document.getElementById('kickMasterToggle');
+    const kickAutoClaimToggle = document.getElementById('kickAutoClaimToggle');
+    const kickAutoClaimPriority = document.getElementById('kickAutoClaimPriority');
+    const kickGlobalStatusPill = document.getElementById('kickGlobalStatusPill');
+    const kickGlobalBonusPill = document.getElementById('kickGlobalBonusPill');
+    const kickAccountNav = document.getElementById('kickAccountNav');
+    const kickAccountsContainer = document.getElementById('kickAccountsContainer');
+    const kickStreamersList = document.getElementById('kickStreamersList');
+    const kickStreamersCount = document.getElementById('kickStreamersCount');
+    const kickBonusStatusBar = document.getElementById('kickBonusStatusBar');
+    const kickBonusStatusText = document.getElementById('kickBonusStatusText');
+
+    let kickBonusConfig = {
+      masterEnabled: false,
+      autoClaim: false,
+      autoClaimProtocol: 1,
+      claimPriority: 'exp',
+      accounts: [
+        { username: '', token: '', enabled: true, channelPoints: {}, gameLinked: false },
+        { username: '', token: '', enabled: true, channelPoints: {}, gameLinked: false },
+        { username: '', token: '', enabled: true, channelPoints: {}, gameLinked: false },
+        { username: '', token: '', enabled: true, channelPoints: {}, gameLinked: false }
+      ]
+    };
+    let kickBonusLiveState = null;
+    let kickPointsState = { accounts: [] };
+    const kickEscape = text => String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function kickVerifiedBalance(slug) {
+      const account = kickPointsState.accounts?.[kickSelectedAccount];
+      const expected = kickBonusConfig.accounts[kickSelectedAccount]?.username?.toLowerCase().replace(/^@/, '');
+      const balance = account?.balances?.[slug];
+      return account?.username === expected && account.status === 'authenticated' &&
+        balance?.status === 'verified' && Date.now() - balance.checkedAt < 120000 ? balance : null;
+    }
+    function syncKickPointStatus() {
+      let state = kickPointsState.accounts?.[kickSelectedAccount];
+      const expectedUser = kickBonusConfig.accounts[kickSelectedAccount]?.username?.toLowerCase().replace(/^@/, '');
+      if (state?.status === 'authenticated' && state.username !== expectedUser) state = null;
+      const label = document.getElementById('kickPointsStatus');
+      if (label) label.textContent = state?.refreshing ? 'Consultando saldo...' :
+        (state?.error || (state?.status === 'authenticated' ? `Sessão confirmada: @${state.username}. Atualização a cada minuto.` : 'Entre na Kick nesta conta para consultar seu saldo.'));
+      const identity = document.getElementById('kickSessionIdentity');
+      if (identity) identity.textContent = state?.status === 'authenticated'
+        ? 'Sessão Kick confirmada' : 'Login Kick necessário para consultar saldo';
+      const global = document.getElementById('kickGlobalStatusPill');
+      if (global) global.textContent = !kickBonusConfig.masterEnabled ? '● Desativado' :
+        (kickPointsState.accounts.some(a => a.status === 'authenticated') ? '● Sessão Kick confirmada' : '● Aguardando login na Kick');
+      const button = document.getElementById('kickPointsRefresh');
+      if (button) button.disabled = !!state?.refreshing;
+    }
+    async function refreshKickRealPoints(index = kickSelectedAccount) {
+      if (!window.pokeAPI?.kickRefreshPoints) return;
+      try {
+        if (window.pokeAPI.kickSaveCreds && !(await window.pokeAPI.kickSaveCreds(kickBonusConfig))) {
+          showKickFeedback('Não foi possível salvar o usuário Kick antes da consulta.', true); return;
+        }
+        kickPointsState = await window.pokeAPI.kickRefreshPoints(index);
+        syncKickPointStatus(); renderKickStreamersList();
+      } catch { showKickFeedback('Não foi possível consultar o saldo da Kick.', true); }
+    }
+    async function openKickOfficialChannel(index, slug) {
+      try {
+        if (!window.pokeAPI?.kickOpenSession) throw new Error();
+        const ok = await window.pokeAPI.kickSaveCreds(kickBonusConfig);
+        if (!ok) { showKickFeedback('Salve as configurações antes de entrar na Kick.', true); return; }
+        await window.pokeAPI.kickOpenSession(index, slug);
+      } catch { showKickFeedback('Não foi possível abrir a Kick. Reabra o launcher atualizado.', true); }
+    }
+    async function syncKickGameStatus(idx) {
+      const wv = webviews[idx];
+      if (!wv) return;
+      try {
+        const res = await wv.executeJavaScript(`(() => {
+          try {
+            const P = window.__poke;
+            const k = (P && P.estado && (P.estado.kick || (P.estado.eu && P.estado.eu.kick))) || (window.estado && (window.estado.eu ? window.estado.eu.kick : window.estado.kick)) || null;
+            if (k && (k.login || k.vinculado)) return { linked: true, login: k.login || '', kick: k };
+            const elConta = document.querySelector('.kk-conta');
+            if (elConta) {
+              const text = elConta.textContent || '';
+              const match = text.match(/@([a-zA-Z0-9_-]+)/);
+              return { linked: true, login: match ? match[1] : '' };
+            }
+            const kickBtn = document.querySelector('.tr-ativo.kick');
+            if (kickBtn) {
+              if (!kickBtn.classList.contains('kk-conectar')) {
+                return { linked: true, login: '' };
+              } else {
+                return { linked: false };
+              }
+            }
+            let sL = null;
+            try { sL = JSON.parse(localStorage.getItem('sessao') || 'null'); } catch {}
+            if (sL && sL.kick) return { linked: true, login: sL.kick.login || sL.kick };
+            const btn = document.querySelector('#kk-vincular');
+            if (btn) return { linked: false };
+            return null;
+          } catch { return null; }
+        })()`);
+        if (res && res.linked) {
+          if (!kickCachedGameData[idx]) kickCachedGameData[idx] = {};
+          kickCachedGameData[idx].vinculado = true;
+          if (res.login) kickCachedGameData[idx].login = res.login;
+          if (res.kick) Object.assign(kickCachedGameData[idx], res.kick);
+          if (kickBonusConfig.accounts[idx]) kickBonusConfig.accounts[idx].gameLinked = true;
+          if (res.login && kickBonusConfig.accounts[idx] && !kickBonusConfig.accounts[idx].username) {
+            kickBonusConfig.accounts[idx].username = res.login;
+          }
+          if (window.pokeAPI?.kickSaveCreds) window.pokeAPI.kickSaveCreds(kickBonusConfig).catch(() => {});
+          if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+            renderKickBonusUI();
+          }
+        }
+      } catch {}
+    }
+
+    async function linkKickInGame(index = kickSelectedAccount) {
+      const wv = webviews[index];
+      showKickFeedback('Iniciando vínculo da Kick para a conta ' + (index + 1) + '...');
+      if (!wv) {
+        showKickFeedback('Painel do jogo não encontrado.', true);
+        return;
+      }
+      try {
+        const res = await wv.executeJavaScript(`(() => {
+          try {
+            const P = window.__poke;
+            const k = (P && P.estado && (P.estado.kick || (P.estado.eu && P.estado.eu.kick))) || (window.estado && (window.estado.eu ? window.estado.eu.kick : window.estado.kick)) || null;
+            if (k && (k.login || k.vinculado)) {
+              return { ok: false, alreadyLinked: true, login: k.login || '' };
+            }
+            const elConta = document.querySelector('.kk-conta');
+            if (elConta) {
+              const text = elConta.textContent || '';
+              const match = text.match(/@([a-zA-Z0-9_-]+)/);
+              return { ok: false, alreadyLinked: true, login: match ? match[1] : '' };
+            }
+            const kickBtnCheck = document.querySelector('.tr-ativo.kick');
+            if (kickBtnCheck && !kickBtnCheck.classList.contains('kk-conectar')) {
+              return { ok: false, alreadyLinked: true, login: '' };
+            }
+            let sL = null;
+            try {
+              sL = JSON.parse(localStorage.getItem('sessao') || 'null');
+              if (sL && sL.kick) return { ok: false, alreadyLinked: true, login: sL.kick.login || sL.kick };
+            } catch {}
+
+            // 1. Se o modal da Kick já estiver aberto no jogo, aciona o botão diretamente
+            const btn = document.querySelector('#kk-vincular');
+            if (btn) {
+              btn.click();
+              return { ok: true, triggered: 'button' };
+            }
+
+            // 2. Dispara o gatilho nativo do jogo para abrir o modal de verificação da Kick
+            let kickBtn = document.querySelector('.tr-ativo.kick, button.kk-conectar, [data-modal="kick"], button.kick');
+            if (!kickBtn) {
+              kickBtn = [...document.querySelectorAll('button')].find(b =>
+                (b.className && typeof b.className === 'string' && (b.className.includes('kick') || b.className.includes('kk-'))) ||
+                (b.textContent && b.textContent.toLowerCase().includes('kick'))
+              );
+            }
+
+            if (kickBtn) {
+              kickBtn.click();
+              // Ao clicar no gatilho da Kick, o jogo executa abrirModal('kick') de forma síncrona,
+              // renderizando o modal #modal com o botão #kk-vincular
+              const btnAposAbrir = document.querySelector('#kk-vincular');
+              if (btnAposAbrir) {
+                btnAposAbrir.click();
+                return { ok: true, triggered: 'modal_and_button' };
+              }
+              return { ok: true, triggered: 'modal_opened' };
+            }
+
+            // 3. Fallback: solicitação manual caso o token de sessão esteja presente
+            let token = null;
+            if (sL && sL.token) token = sL.token;
+            if (!token && P && P.token) token = P.token;
+            if (!token && typeof sessaoSalva === 'function') token = sessaoSalva()?.token;
+            if (!token && window.estado && window.estado.token) token = window.estado.token;
+
+            if (token) {
+              const disp = localStorage.getItem('id-dispositivo') || (typeof idDispositivo === 'function' ? idDispositivo() : '');
+              return fetch('/auth/kick/iniciar', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ token, canal: false, dispositivo: disp })
+              }).then(r => r.json()).then(j => {
+                if (j.url) return { ok: true, url: j.url };
+                if (j.erro && (j.erro.includes('vinculad') || j.erro.includes('já') || j.erro.includes('ja'))) {
+                  return { ok: false, alreadyLinked: true, error: j.erro };
+                }
+                return { ok: false, error: j.erro || 'Falha ao gerar link de autorização da Kick' };
+              }).catch(e => ({ ok: false, error: e.message }));
+            }
+            return { ok: false, error: 'Faça login no jogo nesta conta primeiro.' };
+          } catch (err) {
+            return { ok: false, error: err.message };
+          }
+        })()`);
+        if (res && res.alreadyLinked) {
+          const lName = res.login || kickBonusConfig.accounts[index]?.username || '';
+          if (!kickCachedGameData[index]) kickCachedGameData[index] = {};
+          kickCachedGameData[index].vinculado = true;
+          if (lName) kickCachedGameData[index].login = lName;
+          if (kickBonusConfig.accounts[index]) kickBonusConfig.accounts[index].gameLinked = true;
+          if (lName && !kickBonusConfig.accounts[index]?.username) {
+            kickBonusConfig.accounts[index].username = lName;
+          }
+          if (window.pokeAPI?.kickSaveCreds) window.pokeAPI.kickSaveCreds(kickBonusConfig).catch(() => {});
+          showKickFeedback('✓ Esta conta já está vinculada permanentemente ao jogo' + (lName ? ' (@' + lName + ').' : '.'));
+          renderKickBonusUI();
+          return;
+        }
+        if (res && res.ok) {
+          showKickFeedback('✓ Menu de verificação aberto no jogo! Autorize na Kick para conectar.');
+          if (res.url && window.pokeAPI?.openAuthWindow) {
+            window.pokeAPI.openAuthWindow(index, res.url).catch(() => {});
+          }
+          try { wv.focus(); } catch {}
+          setTimeout(() => {
+            if (typeof closeKickBonusModal === 'function') closeKickBonusModal();
+          }, 700);
+        } else {
+          showKickFeedback((res && res.error) || 'Erro ao iniciar vínculo da Kick.', true);
+        }
+      } catch (e) {
+        showKickFeedback(e.message, true);
+      }
+    }
+    let kickSelectedAccount = 0;
+
+    async function loadKickBonusConfig() {
+      try {
+        if (window.pokeAPI && window.pokeAPI.kickLoadCreds) {
+          const saved = await window.pokeAPI.kickLoadCreds();
+          if (saved) {
+            kickBonusConfig.masterEnabled = !!saved.masterEnabled;
+            if (Array.isArray(saved.accounts)) {
+              for (let i = 0; i < 4; i++) {
+                if (saved.accounts[i]) {
+                  kickBonusConfig.accounts[i] = {
+                    username: saved.accounts[i].username || '',
+                    token: saved.accounts[i].token || '',
+                    enabled: saved.accounts[i].enabled !== false,
+                    channelPoints: saved.accounts[i].channelPoints || {},
+                    linkedUsername: saved.accounts[i].linkedUsername || '',
+                    gameLinked: !!saved.accounts[i].gameLinked
+                  };
+                }
+              }
+            }
+          }
+        }
+        try {
+          const rawAuto = localStorage.getItem('kick_autoclaim_cfg');
+          if (rawAuto) {
+            const parsed = JSON.parse(rawAuto);
+            // Legacy checkbox never executed redemptions; it cannot authorize spending.
+            // Persisted native configuration is the source of truth for the selected buff.
+          }
+        } catch {}
+        if (window.pokeAPI && window.pokeAPI.kickGetStatus) {
+          kickBonusLiveState = await window.pokeAPI.kickGetStatus();
+        }
+        if (window.pokeAPI?.kickGetPoints) kickPointsState = await window.pokeAPI.kickGetPoints();
+      } catch {}
+    }
+
+    function showKickFeedback(msg, isError = false) {
+      if (!kickBonusStatusBar || !kickBonusStatusText) return;
+      kickBonusStatusText.textContent = msg;
+      kickBonusStatusBar.style.display = 'block';
+      kickBonusStatusBar.style.background = isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(83, 252, 24, 0.15)';
+      kickBonusStatusBar.style.color = isError ? '#ef4444' : '#53fc18';
+      setTimeout(() => { if (kickBonusStatusBar) kickBonusStatusBar.style.display = 'none'; }, 4000);
+    }
+
+    function renderKickRewardSummary(channels) {
+      const ready = [], known = [];
+      const redemption = document.getElementById('kickRedemptionStatus');
+      const lastRedemption = kickPointsState.accounts?.[kickSelectedAccount]?.redemption;
+      if (redemption) redemption.textContent = !window.__TAURI_INTERNALS__ ? 'Resgate automático disponível na versão Rust.'
+        : !kickBonusConfig.autoClaim ? 'Resgate automático desligado.'
+        : !kickBonusConfig.masterEnabled || kickBonusConfig.accounts[kickSelectedAccount]?.enabled === false ? 'Automático pausado: acompanhamento desativado nesta conta.'
+        : lastRedemption?.status && lastRedemption.status !== 'off' ? lastRedemption.message : 'Automático ativo: aguardando próxima consulta.';
+      channels.forEach(channel => {
+        const status = KickRewardStatus.forBalance(kickVerifiedBalance(channel.login.toLowerCase()), kickBonusConfig.claimPriority);
+        if (status.known) known.push(channel);
+        if (status.affordable.length) ready.push({ channel, status });
+      });
+      const summary = document.getElementById('kickRewardSummary');
+      const details = document.getElementById('kickRewardChannels');
+      const text = !known.length ? 'Buffs para resgatar: aguardando consulta da Kick'
+        : ready.length ? `Buffs para resgatar: ${ready.length} ${ready.length === 1 ? 'canal' : 'canais'}`
+        : 'Buffs para resgatar: nenhum disponível com este saldo';
+      if (summary && summary.textContent !== text) summary.textContent = text;
+      if (details) details.textContent = ready.length
+        ? ready.map(r => `@${r.channel.login}: ${r.status.label}`).join(' · ')
+        : `${kickBonusConfig.masterEnabled ? 'Atualização a cada 60 s.' : 'Ative a integração para atualizar automaticamente.'} ${KickRewardStatus.selected(kickBonusConfig.claimPriority).map(r => `${r.label}: ${r.cost.toLocaleString('pt-BR')} pts`).join(' / ')}.`;
+    }
+
+    function renderKickStreamersList() {
+      if (!kickStreamersList) return;
+      const streamMap = new Map();
+
+      const channels = kickLatestChannelSnapshot
+        ? kickChannelsFromSnapshot(kickLatestChannelSnapshot)
+        : KICK_OFFICIAL_PARTNERS.map(login => ({ login, aoVivo: false, espectadores: 0 }));
+      // One received snapshot replaces channel status; old connections cannot revive an offline channel.
+      channels.forEach(c => {
+        if (!c || !c.login) return;
+        const login = c.login.toLowerCase();
+        streamMap.set(login, { ...c, login, aoVivo: c.aoVivo === true });
+      });
+
+      const allList = Array.from(streamMap.values());
+      renderKickRewardSummary(allList);
+      const liveList = allList.filter(s => s.aoVivo);
+      const offList = allList.filter(s => !s.aoVivo);
+
+      // Atualiza os contadores das abas
+      const countAllEl = document.getElementById('kickCountAll');
+      const countLiveEl = document.getElementById('kickCountLive');
+      const countOffEl = document.getElementById('kickCountOff');
+      if (countAllEl) countAllEl.textContent = String(allList.length);
+      if (countLiveEl) countLiveEl.textContent = String(liveList.length);
+      if (countOffEl) countOffEl.textContent = String(offList.length);
+
+      if (kickStreamersCount) {
+        kickStreamersCount.textContent = `${liveList.length} ao vivo / ${allList.length} parceiros`;
+      }
+
+      // Aplica o filtro selecionado
+      let filtered = allList;
+      if (kickStreamersFilter === 'live') {
+        filtered = liveList;
+      } else if (kickStreamersFilter === 'off') {
+        filtered = offList;
+      }
+
+      // Ordenacao: Ao Vivo primeiro (espectadores desc), depois Offline (pontos desc, nome asc)
+      filtered.sort((a, b) => {
+        if (a.aoVivo !== b.aoVivo) return Number(b.aoVivo) - Number(a.aoVivo);
+        if (a.aoVivo && b.aoVivo) return (b.espectadores || 0) - (a.espectadores || 0);
+        const ptsA = kickVerifiedBalance(a.login.toLowerCase())?.points || 0;
+        const ptsB = kickVerifiedBalance(b.login.toLowerCase())?.points || 0;
+        if (ptsB !== ptsA) return ptsB - ptsA;
+        return a.login.localeCompare(b.login);
+      });
+
+      if (filtered.length === 0) {
+        kickStreamersList.innerHTML = `<div style="font-size:12px;color:var(--color-text-secondary);padding:14px;text-align:center;">Nenhum streamer encontrado no filtro.</div>`;
+        return;
+      }
+
+      kickStreamersList.innerHTML = filtered.map(s => {
+        const loginLower = s.login.toLowerCase();
+        const balance = kickVerifiedBalance(loginLower);
+        const points = balance?.points ?? null;
+
+        const rewardStatus = KickRewardStatus.forBalance(balance, kickBonusConfig.claimPriority);
+        const rewardClass = rewardStatus.className;
+        const rewardLabel = rewardStatus.label;
+
+        return `
+          <div class="kick-streamer-item ${s.aoVivo ? 'live' : 'off'}">
+            <div class="kick-streamer-top">
+              <span class="kick-streamer-name" title="@${kickEscape(s.login)}">@${kickEscape(s.login)}</span>
+              <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                ${s.aoVivo ? '<span class="kick-badge-live">AO VIVO</span>' : '<span class="kick-badge-off">OFFLINE</span>'}
+                ${s.espectadores > 0 ? `<small style="color:var(--color-text-secondary);font-size:10px;">(${s.espectadores})</small>` : ''}
+              </div>
+            </div>
+            <div class="kick-streamer-bottom">
+              <span class="kick-points-tag" title="${balance ? 'Consultado na Kick às ' + new Date(balance.checkedAt).toLocaleTimeString('pt-BR') : 'O saldo local antigo não é usado como saldo real'}">
+                <span>${points === null ? 'Saldo indisponível' : '<b>' + points.toLocaleString('pt-BR') + '</b> pts'}</span>
+              </span>
+              <button type="button" class="kick-btn-test kick-open-channel" data-channel="${kickEscape(s.login)}">Atualizar saldo</button>
+              <div class="kick-reward-pill ${rewardClass}">
+                ${rewardLabel}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      kickStreamersList.querySelectorAll('.kick-open-channel').forEach(button => {
+        button.onclick = () => refreshKickRealPoints(kickSelectedAccount);
+      });
+    }
+
+    // Abas de filtro: Todos, Ao Vivo, Offline
+    const kickStreamersTabsEl = document.getElementById('kickStreamersTabs');
+    if (kickStreamersTabsEl) {
+      kickStreamersTabsEl.querySelectorAll('.kick-streamers-tab').forEach(tabBtn => {
+        tabBtn.onclick = () => {
+          kickStreamersTabsEl.querySelectorAll('.kick-streamers-tab').forEach(b => b.classList.remove('active'));
+          tabBtn.classList.add('active');
+          kickStreamersFilter = tabBtn.getAttribute('data-filter') || 'all';
+          renderKickStreamersList();
+        };
+      });
+    }
+
+    function renderKickBonusUI() {
+      if (kickMasterToggle) kickMasterToggle.checked = kickBonusConfig.masterEnabled;
+      if (kickAutoClaimToggle) {
+        kickAutoClaimToggle.checked = kickBonusConfig.autoClaim;
+        kickAutoClaimToggle.disabled = !window.__TAURI_INTERNALS__;
+        kickAutoClaimToggle.title = window.__TAURI_INTERNALS__ ? '' : 'Resgate automático disponível na versão Rust.';
+      }
+      if (kickAutoClaimPriority) kickAutoClaimPriority.value = kickBonusConfig.claimPriority;
+
+      const isRunning = kickBonusConfig.masterEnabled && kickPointsState.accounts.some(a => a.status === 'authenticated');
+      if (kickGlobalStatusPill) {
+        kickGlobalStatusPill.textContent = !kickBonusConfig.masterEnabled ? '● Desativado' : (isRunning ? '● Sessão Kick confirmada' : '● Aguardando login na Kick');
+        kickGlobalStatusPill.className = 'kick-kpi-pill' + (isRunning ? ' active' : '');
+      }
+
+      let kickBonusTxt = '';
+      kickCachedGameData.forEach(k => {
+        if (!k) return;
+        if (k.bonusExp) kickBonusTxt = 'EXP +15%';
+        else if (k.bonusCatch) kickBonusTxt = 'Catch +15%';
+        else if (k.bonusLure) kickBonusTxt = 'Lure +15%';
+      });
+      if (kickGlobalBonusPill) {
+        kickGlobalBonusPill.textContent = kickBonusTxt ? `⚡ Bônus no Jogo: ${kickBonusTxt}` : 'Bônus no Jogo: Inativo';
+      }
+
+      window.__kickBonusStatus = kickBonusConfig;
+      window.__kickBonusTxt = kickBonusTxt || 'ON';
+      if (window.__syncKickBonusBadge) window.__syncKickBonusBadge();
+
+      // Render tabs
+      if (kickAccountNav) {
+        kickAccountNav.replaceChildren();
+        for (let n = 0; n < 4; n++) {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'kick-account-choice' + (n === kickSelectedAccount ? ' selected' : '');
+          const number = document.createElement('span'); number.className = 'kick-choice-number'; number.textContent = String(n + 1);
+          const info = document.createElement('span'); info.className = 'kick-choice-info';
+          const name = document.createElement('b'); name.textContent = shownAccountName(n, (accounts[n] && accounts[n].name) || defName(n));
+          const cfg = kickBonusConfig.accounts[n];
+          const state = document.createElement('small');
+          state.textContent = !cfg || !cfg.enabled ? 'Desligada' : (cfg.username ? '@' + cfg.username : 'Pendente');
+          info.append(name, state); item.append(number, info);
+          item.onclick = () => { kickSelectedAccount = n; syncKickGameStatus(n); renderKickBonusUI(); };
+          kickAccountNav.appendChild(item);
+        }
+      }
+
+      // Render active account card
+      if (kickAccountsContainer) {
+        kickAccountsContainer.replaceChildren();
+        const i = kickSelectedAccount;
+        const acc = kickBonusConfig.accounts[i] || { username: '', token: '', enabled: true };
+        const liveAcc = (kickBonusLiveState && kickBonusLiveState.accounts && kickBonusLiveState.accounts[i]) || { status: 'disconnected', activeChannel: null };
+        const gameKick = kickCachedGameData[i] || null;
+
+        if (!acc.username && gameKick && gameKick.login) {
+          acc.username = gameKick.login;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'kick-account-card';
+
+        const pointState = kickPointsState.accounts[i];
+        let statusColor = pointState?.status === 'authenticated' ? 'var(--color-accent)' : 'var(--color-text-secondary)';
+        let statusText = pointState?.status === 'authenticated' ? 'Sessão Kick confirmada' : 'Login Kick necessário para consultar saldo';
+
+        const isGameLinked = !!(acc.gameLinked || (gameKick && (gameKick.vinculado || gameKick.login)));
+        const linkedLogin = (gameKick && gameKick.login) || acc.username || '';
+
+        card.innerHTML = `
+          <div class="kick-acc-header">
+            <span class="kick-acc-name">${kickEscape(shownAccountName(i, (accounts[i] && accounts[i].name) || defName(i)))}</span>
+            <label class="kick-toggle-label">
+              <input type="checkbox" id="kickAccEnable${i}" ${acc.enabled ? 'checked' : ''}>
+              <span>Ativar nesta conta</span>
+            </label>
+          </div>
+          <div class="kick-acc-status-row">
+            <span class="kick-status-dot" style="background:${statusColor};box-shadow:0 0 6px ${statusColor}"></span>
+            <span id="kickSessionIdentity" style="color:var(--color-text-primary);font-weight:600;">${statusText}</span>
+            ${isGameLinked
+              ? `<span class="kick-linked-badge" title="Conta Kick vinculada permanentemente ao jogo">🔒 Vinculada ao Jogo${linkedLogin ? `: @${kickEscape(linkedLogin)}` : ''}</span>`
+              : `<span style="font-size:11px;color:var(--color-text-secondary);">Sem vínculo no jogo</span>`
+            }
+          </div>
+          <div class="kick-input-group">
+            <label for="kickUser${i}">Usuário Kick (Login)</label>
+            <input id="kickUser${i}" type="text" autocomplete="off" spellcheck="false" placeholder="Ex: seu_login_kick" value="${kickEscape(acc.username || '')}">
+          </div>
+          <div class="kick-session-actions">
+            ${isGameLinked ? '' : '<button type="button" class="kick-btn-test" id="kickLinkInGame" title="Vincular a Kick com o jogo e capturar a sessão automaticamente">🔗 Vincular Kick no Jogo</button>'}
+            <button type="button" class="kick-btn-test" id="kickLoginSession">Entrar na Kick</button>
+            <button type="button" class="kick-btn-test" id="kickPointsRefresh">Atualizar saldo</button>
+          </div>
+          <p class="kick-token-help" id="kickPointsStatus"></p>
+          <details class="kick-token-help" open>
+            <summary>Como acompanhar os pontos?</summary>
+            <p>Entre na Kick na janela desta conta, usando o mesmo usuário vinculado ao jogo. Não é necessário copiar tokens. Cada conta mantém sua própria sessão.</p>
+            <p>O login fica salvo e o saldo atualiza a cada minuto. A janela fecha após confirmar a sessão. Nenhuma live é aberta ou mantida tocando em segundo plano.</p>
+          </details>
+          <div class="kick-acc-actions">
+            <button type="button" class="kick-btn-test" id="kickTestBtn${i}">Verificar sessão</button>
+            <span class="kick-test-result" id="kickTestResult${i}"></span>
+          </div>
+        `;
+        kickAccountsContainer.appendChild(card);
+
+        const linkKickBtn = document.getElementById('kickLinkInGame');
+        if (linkKickBtn) linkKickBtn.onclick = () => linkKickInGame(i);
+        document.getElementById('kickLoginSession').onclick = () => openKickOfficialChannel(i);
+        document.getElementById('kickPointsRefresh').onclick = () => refreshKickRealPoints(i);
+        syncKickPointStatus();
+        const enableCb = document.getElementById(`kickAccEnable${i}`);
+        if (enableCb) {
+          enableCb.onchange = () => {
+            acc.enabled = enableCb.checked;
+            renderKickBonusUI();
+          };
+        }
+        const userInp = document.getElementById(`kickUser${i}`);
+        if (userInp) {
+          userInp.oninput = () => { acc.username = userInp.value.trim(); syncKickPointStatus(); renderKickStreamersList(); };
+        }
+        const tokenInp = document.getElementById(`kickToken${i}`);
+        if (tokenInp) {
+          tokenInp.oninput = () => { acc.token = tokenInp.value.trim(); };
+        }
+        const eyeBtn = document.getElementById(`kickEye${i}`);
+        if (eyeBtn && tokenInp) {
+          eyeBtn.onclick = () => {
+            const isPw = tokenInp.type === 'password';
+            tokenInp.type = isPw ? 'text' : 'password';
+            eyeBtn.textContent = isPw ? 'Ocultar' : 'Ver';
+          };
+        }
+        const testBtn = document.getElementById(`kickTestBtn${i}`);
+        const testRes = document.getElementById(`kickTestResult${i}`);
+        if (testBtn && testRes) {
+          testBtn.onclick = async () => {
+            testBtn.disabled = true;
+            testRes.textContent = 'Verificando sessão Kick...';
+            testRes.style.color = 'var(--color-text-secondary)';
+            try {
+              await refreshKickRealPoints(i);
+              const state = kickPointsState.accounts?.[i];
+              testRes.textContent = state?.status === 'authenticated'
+                ? `Sessão confirmada: @${state.username}` : (state?.error || 'Entre na Kick nesta conta.');
+              testRes.style.color = state?.status === 'authenticated' ? 'var(--color-accent)' : 'var(--color-text-secondary)';
+            } catch (e) {
+              testRes.textContent = 'Não foi possível verificar a sessão Kick.';
+            } finally {
+              testBtn.disabled = false;
+            }
+          };
+        }
+      }
+
+      renderKickStreamersList();
+    }
+
+    function openKickBonusModal() {
+      return loadKickBonusConfig().then(() => {
+        for (let idx = 0; idx < 4; idx++) syncKickGameStatus(idx);
+        renderKickBonusUI();
+        if (kickBonusOverlay) kickBonusOverlay.classList.add('show');
+      });
+    }
+
+    function closeKickBonusModal() {
+      if (kickBonusOverlay) kickBonusOverlay.classList.remove('show');
+    }
+
+    if (kickBonusBtn) kickBonusBtn.onclick = openKickBonusModal;
+    if (kickBonusCloseBtn) kickBonusCloseBtn.onclick = closeKickBonusModal;
+    if (kickBonusCancel) kickBonusCancel.onclick = closeKickBonusModal;
+
+    if (kickMasterToggle) {
+      kickMasterToggle.onchange = () => {
+        kickBonusConfig.masterEnabled = kickMasterToggle.checked;
+        renderKickBonusUI();
+      };
+    }
+    if (kickAutoClaimToggle) {
+      kickAutoClaimToggle.onchange = async () => {
+        const previous = kickBonusConfig.autoClaim;
+        kickBonusConfig.autoClaim = kickAutoClaimToggle.checked;
+        kickBonusConfig.autoClaimProtocol = 1;
+        kickAutoClaimToggle.disabled = true;
+        renderKickStreamersList();
+        try {
+          if (!kickConfigReady || !window.pokeAPI?.kickSaveCreds || !(await window.pokeAPI.kickSaveCreds(kickBonusConfig))) throw Error('save');
+        } catch {
+          kickBonusConfig.autoClaim = previous;
+          kickAutoClaimToggle.checked = previous;
+          showKickFeedback('Falha ao salvar. O resgate automático mantém a configuração anterior.', true);
+        } finally {
+          kickAutoClaimToggle.disabled = !window.__TAURI_INTERNALS__;
+          renderKickStreamersList();
+        }
+      };
+    }
+
+    if (kickAutoClaimPriority) {
+      kickAutoClaimPriority.onchange = async () => {
+        const previous = kickBonusConfig.claimPriority;
+        kickBonusConfig.claimPriority = kickAutoClaimPriority.value;
+        kickAutoClaimPriority.disabled = true;
+        renderKickStreamersList();
+        try {
+          if (!kickConfigReady || !window.pokeAPI?.kickSaveCreds || !(await window.pokeAPI.kickSaveCreds(kickBonusConfig))) throw Error('save');
+        } catch {
+          kickBonusConfig.claimPriority = previous;
+          kickAutoClaimPriority.value = previous;
+          showKickFeedback('Falha ao salvar. O buff escolhido mantém a configuração anterior.', true);
+        } finally {
+          kickAutoClaimPriority.disabled = false;
+          renderKickStreamersList();
+        }
+      };
+    }
+
+    if (kickBonusSave) {
+      kickBonusSave.onclick = async () => {
+        kickBonusSave.disabled = true;
+        try {
+          if (window.pokeAPI && window.pokeAPI.kickSaveCreds) {
+            const ok = await window.pokeAPI.kickSaveCreds(kickBonusConfig);
+            try {
+              localStorage.setItem('kick_autoclaim_cfg', JSON.stringify({
+                autoClaim: kickBonusConfig.autoClaim,
+                claimPriority: kickBonusConfig.claimPriority
+              }));
+            } catch {}
+            if (ok) {
+              showKickFeedback('✓ Configurações da Kick salvas!');
+              renderKickBonusUI();
+              setTimeout(closeKickBonusModal, 800);
+            } else {
+              showKickFeedback('Falha ao salvar configurações da Kick', true);
+            }
+          }
+        } catch (e) {
+          showKickFeedback(e.message, true);
+        } finally {
+          kickBonusSave.disabled = false;
+        }
+      };
+    }
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+          e.preventDefault();
+          closeKickBonusModal();
+        }
+      });
+    }
+
+    if (window.pokeAPI && window.pokeAPI.onKickStatus) {
+      window.pokeAPI.onKickStatus((st) => {
+        kickBonusLiveState = st;
+        if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+          renderKickBonusUI();
+          renderKickStreamersList();
+        } else {
+          window.__kickBonusStatus = { masterEnabled: kickBonusConfig.masterEnabled };
+          window.__kickBonusTxt = 'ON';
+          if (window.__syncKickBonusBadge) window.__syncKickBonusBadge();
+        }
+      });
+    }
+
+    if (window.pokeAPI && window.pokeAPI.onKickPoints) {
+      window.pokeAPI.onKickPoints((st) => {
+        kickPointsState = st || { accounts: [] };
+        syncKickPointStatus();
+        if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+          renderKickStreamersList();
+          renderKickBonusUI();
+        }
+      });
+    }
+
+    if (window.pokeAPI && window.pokeAPI.onKickCreds) {
+      window.pokeAPI.onKickCreds((newCreds) => {
+        if (newCreds && Array.isArray(newCreds.accounts)) {
+          for (let i = 0; i < 4; i++) {
+            if (newCreds.accounts[i] && newCreds.accounts[i].username) {
+              kickBonusConfig.accounts[i].username = newCreds.accounts[i].username;
+            }
+          }
+          showKickFeedback('✓ Sessão da Kick capturada automaticamente!');
+          if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+            renderKickBonusUI();
+          }
+        }
+      });
+    }
+
+    if (window.pokeAPI && window.pokeAPI.onKickGameLinked) {
+      window.pokeAPI.onKickGameLinked(({ index, login }) => {
+        if (!kickCachedGameData[index]) kickCachedGameData[index] = {};
+        kickCachedGameData[index].vinculado = true;
+        if (login) kickCachedGameData[index].login = login;
+        if (kickBonusConfig.accounts[index]) {
+          kickBonusConfig.accounts[index].gameLinked = true;
+          if (login) kickBonusConfig.accounts[index].linkedUsername = String(login).toLowerCase().replace(/^@/, '');
+          if (login && !kickBonusConfig.accounts[index].username) kickBonusConfig.accounts[index].username = login;
+        }
+        if (window.pokeAPI?.kickSaveCreds) window.pokeAPI.kickSaveCreds(kickBonusConfig).catch(() => {});
+        showKickFeedback('✓ Conta Kick vinculada com sucesso ao jogo' + (login ? ' (@' + login + ')!' : '!'));
+        if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
+          renderKickBonusUI();
+        }
+      });
+    }
+
+    loadKickBonusConfig().then(() => {
+      window.__kickBonusStatus = { masterEnabled: kickBonusConfig.masterEnabled };
+      window.__kickBonusTxt = 'ON';
+      if (window.__syncKickBonusBadge) window.__syncKickBonusBadge();
+    });
     loadTwitchBonusConfig().then(() => { if (window.__syncTwitchBonusBadge) window.__syncTwitchBonusBadge(); });
 
     // ----- Anti-sono: impede o PC de dormir enquanto farma -----
@@ -8645,8 +9741,22 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     const hasData = !!(cName || (team && team.length > 0) || cLevel > 0 || P.cid || ch.id || (bm && bm.counts));
     const live = (inGame || hasData) && !isPort && !((P.meMiss || 0) >= 2 && !(P.sock && P.sock.readyState === 1));
     const tw = (P.estado && P.estado.twitch) || (window.estado && (window.estado.eu ? window.estado.eu.twitch : window.estado.twitch)) || null;
+    let kick = (P.estado && (P.estado.kick || (P.estado.eu && P.estado.eu.kick))) || (window.estado && (window.estado.eu ? window.estado.eu.kick : window.estado.kick)) || null;
+    if (!kick && typeof document !== 'undefined') {
+      const elConta = document.querySelector('.kk-conta');
+      if (elConta) {
+        const m = (elConta.textContent || '').match(/@([a-zA-Z0-9_-]+)/);
+        kick = { vinculado: true, login: m ? m[1] : '' };
+      } else {
+        const kickBtn = document.querySelector('.tr-ativo.kick');
+        if (kickBtn && !kickBtn.classList.contains('kk-conectar')) {
+          kick = { vinculado: true, login: '' };
+        }
+      }
+    }
     return { ok:true, cid: ch.id||P.cid||(P.estado&&P.estado.id)||'', name: cName, level: cLevel, gold: cGold, diamonds: cDiamonds, vip: !!ch.isVip, clan: ch.clan||(P.estado&&P.estado.guild&&(P.estado.guild.nome||P.estado.guild.name))||null, clanRank: ch.clanRank||0, shinyEnc: P.shinyEnc||0, usedList: P.usedList||[], catchLog: P.catchLog||[], shinyLog: P.shinyLog||[], chatShares: P.chatShares||[], balls: sBalls, equippedBall, activeId: actId || null, potions: sPot, revives: sRev, invMap, ballMap,
       twitch: tw,
+      kick: kick,
       prof: ch.profession||'', profRank: ch.professionRank||0, catches: ch.catches||0, hunt, gifts: mail.gifts||0,
       a, drops, bag, team, allPokes, prev,
       live, portal: isPort, sk: !!(P.sock && P.sock.readyState === 1),
@@ -9214,7 +10324,9 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     const cardsEl = document.getElementById('cards');
     const cardsBtn = document.getElementById('cardsBtn');
     let dhist = [];                      // amostras {t,g,x} da ultima hora pros sparklines
-    let dsort = { k: 'gph', d: -1 };     // ordenacao da tabela
+    let dsort = { k: '', d: -1 }; // ordem fixa; ordenar somente por clique
+    let cdAccountOrder = [];
+    let cdSortPending = false;
     // raridade pela qualidade: mesmos limites e cores da funcao qualityInfo do jogo
     const RARO = (q) => q >= 4 ? ['Divina', '#dbefff'] : q >= 3 ? ['Anciã', '#b8860b'] : q >= 2 ? ['Mítica', '#6a0dad'] : q >= 1.7 ? ['Lendária', '#ff8c3c'] : q >= 1.5 ? ['Épica', '#f0c040'] : q >= 1.3 ? ['Rara', '#b06cff'] : q >= 1.1 ? ['Incomum', '#7fd4ff'] : q >= 1 ? ['Comum', '#63d873'] : ['Fraca', '#9aa6b3'];
     const raroHtml = (q) => { if (!q) return ''; const r = RARO(q); return ' <b style="color:' + r[1] + '">' + r[0] + '</b>'; };
@@ -10141,9 +11253,15 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
 
       const valOf = (r, k) => k === 'name' || k === 'hunt' ? String(r[k] || '').toLowerCase()
         : k === 'lead' ? (r.lead ? +r.lead.level || 0 : -1) : k === 'best' ? bestScore(r.best) : k === 'last' ? (r.last ? r.last.t : 0) : k === 'st' ? r.st : (r[k] || 0);
-      const on = rows.filter(r => r.st === 'on');
-      on.sort((p, q) => { const a2 = valOf(p, dsort.k), b2 = valOf(q, dsort.k); return (a2 > b2 ? 1 : a2 < b2 ? -1 : 0) * dsort.d; });
-      const ordered = on.concat(rows.filter(r => r.st !== 'on'));
+      if (cdSortPending) {
+        rows.sort((p, q) => { const a2 = valOf(p, dsort.k), b2 = valOf(q, dsort.k); return (a2 > b2 ? 1 : a2 < b2 ? -1 : 0) * dsort.d || p.i - q.i; });
+        cdAccountOrder = rows.map(r => r.i);
+        cdSortPending = false;
+      }
+      const ordered = rows.slice().sort((p, q) => {
+        const rank = r => { const pos = cdAccountOrder.indexOf(r.i); return pos < 0 ? cdAccountOrder.length + r.i : pos; };
+        return rank(p) - rank(q);
+      });
       const lost = Math.max(0, sumSF - sumSC);
       carregaHunts(); carregaItens(); // carrega o mapa id→nome sempre, pra resolver o nome do shiny mesmo com o ranking escondido
 
@@ -10566,7 +11684,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
         rz2.addEventListener('dblclick', () => { delete cardsCfg.h[it.dataset.s]; saveCardsCfg(); refreshCards(); });
       });
       // tabela
-      cardsEl.querySelectorAll('th[data-k]').forEach(th => th.onclick = () => { const k = th.dataset.k; if (dsort.k === k) dsort.d *= -1; else dsort = { k, d: -1 }; refreshCards(true); });
+      cardsEl.querySelectorAll('th[data-k]').forEach(th => th.onclick = () => { const k = th.dataset.k; if (dsort.k === k) dsort.d *= -1; else dsort = { k, d: -1 }; cdSortPending = true; refreshCards(true); });
       cardsEl.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => { const i = +tr.dataset.i; cardsOn = false; applyCards(); window.PIWView?.set('windows'); toggleExpand(i); });
       const rb = cardsEl.querySelector('#cdReset'); if (rb) rb.onclick = resetSessao;
       // ranking
@@ -10621,7 +11739,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     // Zerar a sessao: nossos numeros vem de P.sess (acumulador proprio), que so reseta na troca de hunt.
     // Isso reinicia o acumulador de todas as contas AGORA, pra monitorar a partir deste ponto. Nao mexe
     // em totais da conta (gold, nivel, shinies de vida) nem em knownPokes (senao contaria captura repetida).
-    const RESET_SESS = "(()=>{const P=window.__poke;if(!P)return;P.sess={start:Date.now(),kills:0,xp:0,balls:0,captures:0,drops:{},shinyN:0,shinySeen:{},shinyCapN:0,faintN:0,sellG:0,supGold:0,supN:0,gold:0,slug:P.lastSlug||'',hp:{}};P.catchLog=[];P.shinyLog=[];P.anBase=(P.ws&&P.ws.analyzer&&typeof P.ws.analyzer==='object')?JSON.parse(JSON.stringify(P.ws.analyzer)):null;try{const nK=(P.nick||(P.estado&&P.estado.nick)||'').toLowerCase();if(nK)localStorage.removeItem('sessao-hunt:'+nK);}catch(e){}try{const rb=document.querySelector('.eco-reset,.sessao-reset');if(rb)rb.click();}catch(e){}try{if(P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'analyzer-clear'}))}catch(e){}})()";
+    const RESET_SESS = "(()=>{const P=window.__poke;if(!P)return;P.sess={start:Date.now(),kills:0,xp:0,balls:0,captures:0,drops:{},shinyN:0,shinySeen:{},shinyCapN:0,faintN:0,sellG:0,supGold:0,supN:0,gold:0,slug:P.lastSlug||'',hp:{}};P.catchLog=[];P.shinyLog=[];P.anBase=(P.ws&&P.ws.analyzer&&typeof P.ws.analyzer==='object')?JSON.parse(JSON.stringify(P.ws.analyzer)):null;try{const nK=(P.nick||(P.estado&&P.estado.nick)||'').toLowerCase();if(nK)localStorage.removeItem('sessao-hunt:'+nK);}catch(e){}try{const rb=document.querySelector('.eco-reset,#sessao-reset');if(rb)rb.click();}catch(e){}try{if(P.sock&&P.sock.readyState===1)P.sock.send(JSON.stringify({type:'analyzer-clear'}))}catch(e){}})()";
     function resetSessao() {
       if (!window.confirm(t('resetConfirm'))) return;
       webviews.forEach((w, i) => { if (off[i] || !w) return; try { w.executeJavaScript(RESET_SESS).catch(() => { }); } catch { } });

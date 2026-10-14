@@ -1,12 +1,15 @@
 {
   "name": "piorebosteio",
-  "version": "1.5.57",
-  "description": "Rode de 1 a 4 contas de Poke Idle IO ao mesmo tempo, em uma janela so / Run 1 to 4 Poke Idle IO accounts at once, in a single window",
+  "version": "2.0.15",
+  "description": "PIO Nailo — launcher Rust/Tauri para Poke Idle IO com quatro contas no Windows",
   "main": "main.js",
   "author": "souonailo",
   "scripts": {
-    "start": "electron .",
+    "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/start-rust.ps1",
+    "start:electron": "electron .",
     "test:panels": "electron test/panel-controls.test.js",
+    "test:battle-hud": "electron test/battle-hud-electron.test.cjs",
+    "test:game-headless": "node --test test/game-headless.test.cjs",
     "test:performance": "node test/runtime-performance.test.js",
     "test:guest-runtime": "node test/guest-runtime.test.js",
     "test:auto-supply": "node test/auto-supply.test.js",
@@ -17,6 +20,9 @@
     "test:catch-nota": "electron test/catch-nota.test.js",
     "test:userscripts": "electron test/userscripts.test.js",
     "test:memory-probe": "node test/memory-probe.test.js",
+    "test:kick": "node test/kick-presence.test.js",
+    "test:kick-points": "node --test test/kick-points.test.cjs",
+    "test:kick-points-integration": "electron test/kick-points-electron.test.cjs",
     "mem:run": "electron . --mem-probe --mem-tray-after=300 --mem-show-after=2100 --mem-duration=2160",
     "mem:bench": "node tools/mem-bench.js",
     "mem:report": "node tools/mem-report.js"

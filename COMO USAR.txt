@@ -1,60 +1,25 @@
-=======================================================
-   PIO REBOSTEIO - COMO USAR (passo a passo)
-=======================================================
+PIO NAILO RUST - COMO USAR
 
-Guia para quem nunca mexeu com isso.
-Esta versao roda direto do codigo-fonte. Sao passos simples, e a parte
-de preparacao voce so precisa fazer UMA unica vez.
+1. Extraia o ZIP inteiro ou clone o repositorio/seu fork.
+2. Abra: Abrir PIO Nailo Rust.bat
+3. Aguarde a preparacao inicial: Rust, C++ Build Tools/SDK, WebView2,
+   Tauri CLI, Python e Camoufox. Downloads e compilacao podem demorar
+   e ocupar varios GB; o Windows pode pedir administrador ou reinicio.
+4. Configure/confira as quatro contas e use Logar equipe.
 
+Nao precisa de Node.js ou Electron para este inicializador.
+O antigo Abrir Poke Idle IO.bat foi removido.
+Crie atalhos para o BAT novo, nao para executaveis antigos.
 
-PASSO 1 - ABRIR O APLICATIVO (TUDO AUTOMATICO NO WINDOWS)
----------------------------------------------------------
-No Windows, voce NAO precisa instalar o Node.js manualmente:
+Git: o BAT tenta atualizar pelo upstream do branch, apenas com clone
+limpo e avanco direto. Nao sobrescreve alteracoes locais.
+ZIP: baixe uma nova copia para atualizar.
 
-  1. Na pasta do projeto, de DOIS CLIQUES no arquivo:
-     Abrir Poke Idle IO.bat
+Interface: rust-migration/ui. Backend: rust-migration/src-tauri/src.
+Reabra pelo BAT depois de editar. Interface usa arquivos locais;
+Rust compila incrementalmente. Nao gera EXE de distribuicao por edicao.
+Mantenha o terminal aberto durante o uso. Encerre tambem pela bandeja
+antes de iniciar outra copia.
 
-  2. Se voce nao tiver o Node.js instalado, o proprio arquivo .bat
-     vai baixar a versao oficial portatil do Node e instalar todas
-     as bibliotecas necessarias sozinho! Ele tambem configura o Camoufox
-     automaticamente para logins inteligentes com Cloudflare Turnstile.
-
-  3. Na primeira vez ele demora 1 ou 2 minutos enquanto baixa o
-     necessario e em seguida abre a janela do launcher automaticamente.
-     Nas proximas vezes o app abre na hora!
-
-  * Se o Windows mostrar uma tela azul ("O Windows protegeu seu
-    computador"), clique em "Mais informacoes" e depois em
-    "Executar assim mesmo". E normal para programas de codigo aberto
-    sem certificado corporativo pago.
-
-  QUER UM ATALHO NA AREA DE TRABALHO?
-  Clique com o botao direito no arquivo "Abrir Poke Idle IO.bat" e escolha:
-  Enviar para > Area de trabalho (criar atalho).
-
-  No Mac ou Linux: instale o Node.js LTS (https://nodejs.org),
-  abra o Terminal na pasta e digite:  npm install && npm start
-
-
-PASSO 2 - USAR E CONECTAR
--------------------------
-  1. No painel, entre na sua conta do Poke Idle IO (ou crie uma).
-  2. O launcher abre exatamente o numero de janelas correspondente
-     as contas que voce configurar (de 1 a 4 contas).
-  3. Clique no botao "Treinadores" (ou no icone de Treinadores),
-     preencha o e-mail e a senha das suas contas e clique em Salvar.
-  4. Pronto! Da proxima vez, basta clicar em "Logar equipe" e todas
-     as contas desconectadas entram automaticamente.
-
-
-PARA ATUALIZAR DEPOIS
----------------------
-- Se voce clonou pelo Git, o arquivo "Abrir Poke Idle IO.bat" ja baixa
-  e sincroniza todas as novidades sozinho toda vez que voce abrir!
-- Se baixou como ZIP avulso, basta baixar o ZIP novo e substituir os arquivos.
-Suas contas e configuracoes continuam salvas intactas no PC.
-
-
-DUVIDAS OU AJUDA
-----------------
-Consulte o arquivo FAQ.md ou MANUAL.md para explicacoes detalhadas.
+Preserve os dados em %APPDATA%/pionailo.
+Leia TUTORIAL.md para instalacao manual e CONTRIBUTING.md para forks.

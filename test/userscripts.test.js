@@ -1,4 +1,4 @@
-﻿// Fase 1 das extensoes: o modal #scOverlay voltou a existir, a shell o alcanca e o motor
+// Fase 1 das extensoes: o modal #scOverlay voltou a existir, a shell o alcanca e o motor
 // de userscripts (guarda de login, dedupe, teto de 4 MB) continua correto.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -25,13 +25,17 @@ ipcMain.on('app:version', event => { event.returnValue = 'test'; });
 ipcMain.handle('creds:load', () => fakeAccounts);
 ipcMain.handle('creds:save', () => true);
 ipcMain.handle('errlog:write', (_event, origin, message) => errors.push(origin + ': ' + message));
-for (const name of ['awake:set', 'mintray:set', 'notify', 'backup:save', 'proxy:apply', 'auth:cancel-login', 'twitch:creds:save']) ipcMain.handle(name, () => true);
+for (const name of ['awake:set', 'mintray:set', 'notify', 'backup:save', 'proxy:apply', 'auth:cancel-login', 'twitch:creds:save', 'kick:creds:save']) ipcMain.handle(name, () => true);
 ipcMain.handle('preset:read', () => '');
 // main.js nao roda neste teste: o canal de GM_xmlhttpRequest e mockado aqui para exercitar a
 // ida e volta inteira (painel -> renderer -> IPC -> renderer -> painel) sem tocar a rede.
 ipcMain.handle('userscript:request', (_event, url) => { xhrCalls.push(url); return { ok: true, status: 200, url, code: '{"a":1}' }; });
 ipcMain.handle('twitch:creds:load', () => ({ masterEnabled: false, accounts: [] }));
 ipcMain.handle('twitch:status:get', () => ({ masterEnabled: false, liveChannels: [], accounts: [] }));
+ipcMain.handle('kick:creds:load', () => ({ masterEnabled: false, accounts: [] }));
+ipcMain.handle('kick:status:get', () => ({ masterEnabled: false, liveChannels: [], accounts: [] }));
+ipcMain.handle('kick:points:get', () => ({ accounts: [] }));
+ipcMain.handle('kick:points:channels', () => true);
 ipcMain.handle('autostart:get', () => ({ on: false, suportado: false }));
 ipcMain.handle('window:control', () => ({ maximized: false }));
 ipcMain.handle('auth:camoufox-check', () => ({ available: false }));
