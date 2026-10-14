@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.18 — Nome original no README
+
+- Restaurado o título “PIO Rebosteio — Launcher Multi-Contas”, com nome equivalente no README em inglês.
+- Corrigidas a assinatura da comunidade e a descrição do pacote para PIO Rebosteio.
+
 ## 2.0.17 — Identidade da comunidade
 
 - Restauradas as logos PokeIdle IO e Rebosteio by Nailo no README.

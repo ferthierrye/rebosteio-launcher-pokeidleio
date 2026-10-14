@@ -1,4 +1,4 @@
-# PIO Nailo — Rust / Tauri
+# PIO Rebosteio — Multi-Account Launcher
 
 PokeIdle launcher for Windows x64, with four account slots, a Rust backend and WebView2. Rust is now the main implementation. The older Electron source remains for reference and migration tests; its launcher batch file has been removed.
 

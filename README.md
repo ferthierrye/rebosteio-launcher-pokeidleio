@@ -6,7 +6,7 @@
 
 <img src="src/ui/assets/rebosteio-by-nailo.png" width="280" alt="PIO Rebosteio by Nailo">
 
-# PIO Nailo — Rust / Tauri
+# PIO Rebosteio — Launcher Multi-Contas
 
 **Quatro contas, uma equipe e muita história pra compartilhar.** 🎮
 
@@ -98,6 +98,6 @@ Vale perguntar, ensinar e discordar com respeito. Cada contribuição ajuda o pr
 
 **Boa caçada — e que venha aquele shiny!** ✨
 
-<sub>PIO Nailo · Rebosteio · Comunidade PokeIdle</sub>
+<sub>PIO Rebosteio by Nailo · Comunidade PokeIdle</sub>
 
 </div>
