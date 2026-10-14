@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.25 — Reconexão automática no modo Headless
+
+- Sessões headless reconectam automaticamente com backoff exponencial (de 2s a 30s) após quedas de rede ou encerramento inesperado de WebSocket.
+- O alvo de caça (`hunt`) é preservado e reativado ao restabelecer a conexão, impedindo perda de rota ou travamento fora de combate.
+- Heartbeat ativo com monitoramento de inatividade e encerramento limpo ao comando do usuário.
+
 ## 2.0.24 — Conexões Kick com memória compartilhada
 
 - Até 12 lives por conta, com listas isoladas nas quatro contas e conexões nativas no processo Rust, sem abrir players automaticamente.

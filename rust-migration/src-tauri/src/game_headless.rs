@@ -280,11 +280,8 @@ impl GameHeadlessManager {
             .ws_url
             .unwrap_or_else(|| "wss://pokeidle.io/ws".to_string());
 
-        self.ws_urls.write().await.insert(index,ws_url.clone());
-        let mut token = config
-            .token
-            .filter(|t| !t.is_empty())
-            .or_else(|| None);
+        self.ws_urls.write().await.insert(index, ws_url.clone());
+        let mut token = config.token.filter(|t| !t.is_empty()).or_else(|| None);
 
         if token.is_none() {
             token = self.get_token(index).await;
@@ -292,100 +289,228 @@ impl GameHeadlessManager {
 
         let token = token.ok_or_else(|| "token_required".to_string())?;
 
-        let nick = self.get_nick(index).await.or(config.nick.filter(|n| !n.is_empty()))
-            .ok_or("Nick autenticado indisponível")?;
-        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-        let mut request = ws_url.into_client_request().map_err(|e| e.to_string())?;
-        request.headers_mut().insert("Origin", "https://pokeidle.io".parse().unwrap());
-        request.headers_mut().insert("User-Agent", crate::webview_manager::CHROME_USER_AGENT.parse().unwrap());
-        let _ = app.emit("blaster:status", json!({"index":index,"status":"connecting"}));
-        let (mut socket, _) = tokio::time::timeout(Duration::from_secs(20), crate::account_proxy::websocket_request(index,request)).await
-            .map_err(|_| "Tempo limite de conexão".to_string())?.map_err(|e| e.to_string())?;
-        socket.send(Message::Text(json!({"t":"hello","nick":nick,"token":token,"delta":1}).to_string().into()))
-            .await.map_err(|e| e.to_string())?;
-        let mut state = self.states.read().await.get(&index).cloned()
-            .unwrap_or_else(|| HeadlessState::new(index, nick));
-        tokio::time::timeout(Duration::from_secs(20), async {
-            while let Some(message) = socket.next().await {
-                match message.map_err(|e| e.to_string())? {
-                    Message::Text(text) => {
-                        let value: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-                        if value["t"] == "erro" {
-                            return Err(format!("Sessão headless recusada: {}", value["msg"].as_str().or(value["chave"].as_str()).unwrap_or("erro de autenticação")));
-                        }
-                        if value["t"] == "welcome" { parse_game_message(&value, &mut state); return Ok(()); }
-                    }
-                    Message::Close(_) => return Err("Servidor encerrou a conexão".into()),
-                    _ => {}
-                }
-            }
-            Err("Conexão encerrada antes de autenticar".into())
-        }).await.map_err(|_| "Servidor não confirmou a sessão headless".to_string())??;
-        socket.send(Message::Text(json!({"t":"client.visibility","foreground":true}).to_string().into())).await.map_err(|e| e.to_string())?;
-        if let Some(hunt) = config.hunt.filter(|s| !s.is_empty()) {
-            socket.send(Message::Text(json!({"t":"hunt.select","slug":hunt}).to_string().into())).await.map_err(|e| e.to_string())?;
-        }
-        let _ = app.emit("blaster:status", json!({"index":index,"status":"connected"}));
-        let app_handle = app.clone();
-        let task = tokio::spawn(async move {
-            let (mut write, mut read) = socket.split();
-            let mut ping_interval = tokio::time::interval(Duration::from_secs(25));
-            let mut sec_interval = tokio::time::interval(Duration::from_secs(1));
-            let start_time = state.start_time.unwrap_or_else(Instant::now);
+        let nick = self
+            .get_nick(index)
+            .await
+            .or(config.nick.filter(|n| !n.is_empty()))
+            .ok_or("Nick autenticado indisponivel")?;
 
-            loop {
-                tokio::select! {
-                    _ = stop_rx.recv() => {
-                        let _ = write.send(Message::Close(None)).await;
-                        break;
-                    }
-                    Some(outgoing) = out_rx.recv() => {
-                        if write.send(outgoing).await.is_err() {
-                            break;
-                        }
-                    }
-                    _ = ping_interval.tick() => {
-                        let ping = json!({ "t": "ping" });
-                        if write.send(Message::Text(ping.to_string().into())).await.is_err() {
-                            break;
-                        }
-                    }
-                    _ = sec_interval.tick() => {
-                        state.a.seconds = start_time.elapsed().as_secs();
-                        if state.a.seconds > 0 {
-                            state.a.xph = (state.a.xp * 3600) / state.a.seconds;
-                            state.a.kph = (state.a.kills as u64 * 3600) / state.a.seconds;
-                            state.a.gph = (state.session_gold.max(0) as u64 * 3600) / state.a.seconds;
-                        }
-                        let _ = app_handle.emit("blaster:update", json!({
-                            "index": index,
-                            "state": &state
-                        }));
-                    }
-                    msg = read.next() => {
-                        match msg {
-                            Some(Ok(Message::Text(txt))) => {
-                                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&txt) {
-                                    if parse_game_message(&val, &mut state) {
-                                        let _ = app_handle.emit("blaster:update", json!({
-                                            "index": index,
-                                            "state": &state
-                                        }));
-                                    }
-                                }
+        let mut state = self
+            .states
+            .read()
+            .await
+            .get(&index)
+            .cloned()
+            .unwrap_or_else(|| HeadlessState::new(index, nick.clone()));
+
+        let target_hunt = config
+            .hunt
+            .clone()
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                if !state.hunt.is_empty() && state.hunt != "centro" {
+                    Some(state.hunt.clone())
+                } else if !state.last_hunt_slug.is_empty() && state.last_hunt_slug != "centro" {
+                    Some(state.last_hunt_slug.clone())
+                } else {
+                    None
+                }
+            });
+
+        let _ = app.emit("blaster:status", json!({"index":index,"status":"connecting"}));
+        let socket = connect_and_handshake(
+            index,
+            &ws_url,
+            &nick,
+            &token,
+            &mut state,
+            target_hunt.as_deref(),
+        )
+        .await?;
+        let _ = app.emit("blaster:status", json!({"index":index,"status":"connected"}));
+
+        let app_handle = app.clone();
+        let ws_url_clone = ws_url.clone();
+        let nick_clone = nick.clone();
+        let initial_hunt = target_hunt.clone();
+
+        let task = tokio::spawn(async move {
+            let mut current_socket = Some(socket);
+            let start_time = state.start_time.unwrap_or_else(Instant::now);
+            let mut backoff_secs = 2u64;
+
+            'reconnect_loop: loop {
+                let socket = match current_socket.take() {
+                    Some(s) => s,
+                    None => {
+                        let _ = app_handle.emit(
+                            "blaster:status",
+                            json!({ "index": index, "status": "connecting" }),
+                        );
+
+                        tokio::select! {
+                            _ = stop_rx.recv() => {
+                                break 'reconnect_loop;
                             }
-                            Some(Ok(Message::Close(_))) | None => {
+                            _ = tokio::time::sleep(Duration::from_secs(backoff_secs)) => {}
+                        }
+
+                        let manager_opt = app_handle.try_state::<std::sync::Arc<GameHeadlessManager>>();
+                        let token_to_use = if let Some(ref m) = manager_opt {
+                            m.get_token(index).await
+                        } else {
+                            None
+                        };
+                        let token_to_use = match token_to_use {
+                            Some(t) if !t.is_empty() => t,
+                            _ => {
+                                backoff_secs = (backoff_secs * 2).min(30);
+                                continue 'reconnect_loop;
+                            }
+                        };
+
+                        let nick_to_use = if let Some(ref m) = manager_opt {
+                            m.get_nick(index).await.unwrap_or_else(|| nick_clone.clone())
+                        } else {
+                            nick_clone.clone()
+                        };
+
+                        let hunt_to_resume = if !state.hunt.is_empty() && state.hunt != "centro" {
+                            Some(state.hunt.clone())
+                        } else if !state.last_hunt_slug.is_empty() && state.last_hunt_slug != "centro" {
+                            Some(state.last_hunt_slug.clone())
+                        } else {
+                            initial_hunt.clone()
+                        };
+
+                        match connect_and_handshake(
+                            index,
+                            &ws_url_clone,
+                            &nick_to_use,
+                            &token_to_use,
+                            &mut state,
+                            hunt_to_resume.as_deref(),
+                        )
+                        .await
+                        {
+                            Ok(new_socket) => {
+                                backoff_secs = 2;
+                                state.live = true;
+                                if let Some(ref m) = manager_opt {
+                                    m.states.write().await.insert(index, state.clone());
+                                }
+                                let _ = app_handle.emit(
+                                    "blaster:status",
+                                    json!({ "index": index, "status": "connected" }),
+                                );
+                                let _ = app_handle.emit(
+                                    "blaster:update",
+                                    json!({ "index": index, "state": &state }),
+                                );
+                                new_socket
+                            }
+                            Err(_) => {
+                                backoff_secs = (backoff_secs * 2).min(30);
+                                continue 'reconnect_loop;
+                            }
+                        }
+                    }
+                };
+
+                let (mut write, mut read) = socket.split();
+                let mut ping_interval = tokio::time::interval(Duration::from_secs(25));
+                let mut sec_interval = tokio::time::interval(Duration::from_secs(1));
+                let mut last_activity = Instant::now();
+                let mut user_stopped = false;
+
+                loop {
+                    tokio::select! {
+                        _ = stop_rx.recv() => {
+                            let _ = write.send(Message::Close(None)).await;
+                            user_stopped = true;
+                            break;
+                        }
+                        Some(outgoing) = out_rx.recv() => {
+                            if write.send(outgoing).await.is_err() {
                                 break;
                             }
-                            _ => {}
+                        }
+                        _ = ping_interval.tick() => {
+                            let ping = json!({ "t": "ping" });
+                            if write.send(Message::Text(ping.to_string().into())).await.is_err() {
+                                break;
+                            }
+                            if last_activity.elapsed() > Duration::from_secs(60) {
+                                break;
+                            }
+                        }
+                        _ = sec_interval.tick() => {
+                            state.a.seconds = start_time.elapsed().as_secs();
+                            if state.a.seconds > 0 {
+                                state.a.xph = (state.a.xp * 3600) / state.a.seconds;
+                                state.a.kph = (state.a.kills as u64 * 3600) / state.a.seconds;
+                                state.a.gph = (state.session_gold.max(0) as u64 * 3600) / state.a.seconds;
+                            }
+                            let _ = app_handle.emit("blaster:update", json!({
+                                "index": index,
+                                "state": &state
+                            }));
+                        }
+                        msg = read.next() => {
+                            match msg {
+                                Some(Ok(Message::Text(txt))) => {
+                                    last_activity = Instant::now();
+                                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&txt) {
+                                        if parse_game_message(&val, &mut state) {
+                                            let _ = app_handle.emit("blaster:update", json!({
+                                                "index": index,
+                                                "state": &state
+                                            }));
+                                        }
+                                    }
+                                }
+                                Some(Ok(Message::Ping(data))) => {
+                                    last_activity = Instant::now();
+                                    let _ = write.send(Message::Pong(data)).await;
+                                }
+                                Some(Ok(Message::Pong(_))) => {
+                                    last_activity = Instant::now();
+                                }
+                                Some(Ok(Message::Close(_))) | None => {
+                                    break;
+                                }
+                                Some(Err(_)) => {
+                                    break;
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
+
+                if user_stopped {
+                    break 'reconnect_loop;
+                }
+
+                state.live = false;
+                if let Some(m) = app_handle.try_state::<std::sync::Arc<GameHeadlessManager>>() {
+                    m.states.write().await.insert(index, state.clone());
+                }
+                let _ = app_handle.emit("blaster:update", json!({ "index": index, "state": &state }));
+                let _ = app_handle.emit(
+                    "blaster:status",
+                    json!({
+                        "index": index,
+                        "status": "connecting"
+                    }),
+                );
             }
 
             parse_game_message(&json!({"t":"disconnected"}), &mut state);
-            app_handle.state::<std::sync::Arc<GameHeadlessManager>>().states.write().await.insert(index, state.clone());
-            let _ = app_handle.emit("blaster:update", json!({"index":index,"state":state}));
+            if let Some(m) = app_handle.try_state::<std::sync::Arc<GameHeadlessManager>>() {
+                m.states.write().await.insert(index, state.clone());
+            }
+            let _ = app_handle.emit("blaster:update", json!({ "index": index, "state": state }));
             let _ = app_handle.emit(
                 "blaster:status",
                 json!({
@@ -399,6 +524,86 @@ impl GameHeadlessManager {
         map.insert(index, BlasterHandle { stop_tx, out_tx, task });
         Ok(())
     }
+}
+
+async fn connect_and_handshake(
+    index: usize,
+    ws_url: &str,
+    nick: &str,
+    token: &str,
+    state: &mut HeadlessState,
+    hunt_slug: Option<&str>,
+) -> Result<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, String> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut request = ws_url.into_client_request().map_err(|e| e.to_string())?;
+    request.headers_mut().insert("Origin", "https://pokeidle.io".parse().unwrap());
+    request.headers_mut().insert("User-Agent", crate::webview_manager::CHROME_USER_AGENT.parse().unwrap());
+
+    let (mut socket, _) = tokio::time::timeout(
+        Duration::from_secs(20),
+        crate::account_proxy::websocket_request(index, request),
+    )
+    .await
+    .map_err(|_| "Tempo limite de conexao ao servidor".to_string())?
+    .map_err(|e| e.to_string())?;
+
+    socket
+        .send(Message::Text(
+            json!({"t":"hello","nick":nick,"token":token,"delta":1})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    tokio::time::timeout(Duration::from_secs(20), async {
+        while let Some(message) = socket.next().await {
+            match message.map_err(|e| e.to_string())? {
+                Message::Text(text) => {
+                    let value: serde_json::Value =
+                        serde_json::from_str(&text).map_err(|e| e.to_string())?;
+                    if value["t"] == "erro" {
+                        return Err(format!(
+                            "Sessao headless recusada: {}",
+                            value["msg"]
+                                .as_str()
+                                .or(value["chave"].as_str())
+                                .unwrap_or("erro de autenticacao")
+                        ));
+                    }
+                    if value["t"] == "welcome" {
+                        parse_game_message(&value, state);
+                        return Ok(());
+                    }
+                }
+                Message::Close(_) => return Err("Servidor encerrou a conexao".into()),
+                _ => {}
+            }
+        }
+        Err("Conexao encerrada antes de autenticar".into())
+    })
+    .await
+    .map_err(|_| "Servidor nao confirmou a sessao headless".to_string())??;
+
+    let _ = socket
+        .send(Message::Text(
+            json!({"t":"client.visibility","foreground":true})
+                .to_string()
+                .into(),
+        ))
+        .await;
+
+    if let Some(hunt) = hunt_slug.filter(|s| !s.is_empty()) {
+        let _ = socket
+            .send(Message::Text(
+                json!({"t":"hunt.select","slug":hunt})
+                    .to_string()
+                    .into(),
+            ))
+            .await;
+    }
+
+    Ok(socket)
 }
 
 fn normalize_session_token(token: String, nick: Option<String>) -> (String, Option<String>) {
@@ -765,6 +970,20 @@ mod tests {
         let config: BlasterConfig = serde_json::from_value(json!({"wsUrl":"ws://127.0.0.1:9999","hunt":"vulpix"})).unwrap();
         assert_eq!(config.ws_url.as_deref(), Some("ws://127.0.0.1:9999"));
         assert_eq!(config.hunt.as_deref(), Some("vulpix"));
+    }
+
+    #[test]
+    fn hunt_target_is_preserved_for_reconnect_across_field_and_disconnect_events() {
+        let mut state = HeadlessState::new(0, "Fixture".into());
+        parse_game_message(&json!({"t":"welcome","estado":{"huntSlug":"larvitar","noCentro":false}}), &mut state);
+        assert_eq!(state.hunt, "larvitar");
+        assert_eq!(state.last_hunt_slug, "larvitar");
+
+        // When temporary disconnect occurs
+        state.live = false;
+        // The hunt slug must still be preserved for reconnect
+        assert_eq!(state.hunt, "larvitar");
+        assert_eq!(state.last_hunt_slug, "larvitar");
     }
 }
 
