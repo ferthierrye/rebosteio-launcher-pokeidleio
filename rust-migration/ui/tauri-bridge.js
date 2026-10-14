@@ -95,7 +95,7 @@
       return invoke('kick_creds_save', { data });
     },
     kickTestConnection: (username, token) => invoke('kick_test', { username, token }).catch(() => ({ ok: false, error: 'Teste falhou' })),
-    kickSyncLives: (lives) => invoke('kick_sync_lives', { lives }).catch(() => true),
+    kickSyncLives: (lives) => invoke('kick_sync_lives', { lives }).catch(() => false),
     kickGetStatus: () => invoke('kick_status_get').catch(() => ({ accounts: [] })),
     kickGetPoints: () => invoke('kick_points_get').catch(() => ({ accounts: [] })),
     kickRefreshPoints: (index) => invoke('kick_points_refresh', { index }),
@@ -185,7 +185,7 @@
     webviewFillCreds: (index, email, pass) => invoke('webview_fill_creds', { index, email, pass }).catch(() => false),
 
     // 10. Metadados
-    appVersion: '2.0.16'
+    appVersion: '2.0.24'
   };
 
   // O launcher carrega as credenciais uma única vez durante sua inicialização.

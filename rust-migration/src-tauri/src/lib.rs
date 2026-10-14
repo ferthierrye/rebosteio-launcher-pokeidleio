@@ -4,6 +4,7 @@ pub mod desktop_settings;
 pub mod social_store;
 pub mod game_headless;
 pub mod kick_service;
+pub mod kick_connections;
 pub mod kick_browser;
 pub mod kick_rewards;
 pub mod twitch_service;
@@ -424,10 +425,11 @@ async fn kick_test(username: String, token: String) -> Result<serde_json::Value,
 
 #[tauri::command]
 async fn kick_sync_lives(
+    app: AppHandle,
     manager: tauri::State<'_, Arc<kick_service::KickServiceManager>>,
-    lives: Vec<String>,
+    lives: Vec<Vec<String>>,
 ) -> Result<bool, String> {
-    Ok(manager.sync_lives(lives).await)
+    manager.sync_lives(&app, lives).await
 }
 
 #[tauri::command]
@@ -443,7 +445,7 @@ async fn kick_points_refresh(app: AppHandle, manager: tauri::State<'_, Arc<kick_
 async fn kick_session_open(app: AppHandle, manager: tauri::State<'_, Arc<kick_service::KickServiceManager>>, index: usize, slug: String) -> Result<bool,String> { manager.open(&app,index,&slug).await }
 
 #[tauri::command]
-async fn kick_point_channels(manager: tauri::State<'_, Arc<kick_service::KickServiceManager>>, channels: Vec<String>) -> Result<bool,String> { manager.set_channels(channels).await; Ok(true) }
+async fn kick_point_channels(manager: tauri::State<'_, Arc<kick_service::KickServiceManager>>, channels: Vec<Vec<String>>) -> Result<bool,String> { manager.set_channels(channels).await; Ok(true) }
 
 // ----------------- AUTH & CAMOUFOX -----------------
 

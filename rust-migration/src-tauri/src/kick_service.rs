@@ -16,6 +16,11 @@ pub fn load_creds() -> Value {
 pub fn save_creds(data: Value) -> bool {
     crate::social_store::save("kick", &data).is_ok()
 }
+fn official_url(channel: &str) -> Result<url::Url, String> {
+    if channel.is_empty() { return url::Url::parse(crate::kick_browser::LOGIN_URL).map_err(|e|e.to_string()); }
+    let slug = crate::social_store::slug(channel).ok_or("Canal Kick inválido")?;
+    url::Url::parse(&format!("https://kick.com/{slug}")).map_err(|e|e.to_string())
+}
 fn empty() -> Value {
     json!({"status":"login_required","username":"","balances":{},"refreshing":false,"error":""})
 }
@@ -52,28 +57,34 @@ fn journal_with_receipt(mut journal:Value,index:usize,receipt:Value)->Value {jou
 pub struct KickServiceManager {
     config: RwLock<Value>,
     accounts: RwLock<Vec<Value>>,
-    channels: RwLock<Vec<String>>,
-    lives: RwLock<Vec<String>>,
+    channels: RwLock<Vec<Vec<String>>>,
+    lives: RwLock<Vec<Vec<String>>>,
     revision: AtomicU64,
     configure_lock: Mutex<()>,
     redemption_lock: Mutex<()>,
     pub save_lock: Mutex<()>,
     jobs: Vec<Mutex<()>>,
+    live_sync_lock: Mutex<()>,
     last_refresh: Mutex<Vec<Option<Instant>>>,
+    connections: crate::kick_connections::Connections,
+    query_lock: Mutex<()>,
 }
 impl KickServiceManager {
     pub fn new() -> Self {
         Self {
             config: RwLock::new(json!({"masterEnabled":false,"accounts":[]})),
             accounts: RwLock::new((0..4).map(|_| empty()).collect()),
-            channels: RwLock::new(Vec::new()),
-            lives: RwLock::new(Vec::new()),
+            channels: RwLock::new(vec![Vec::new();4]),
+            lives: RwLock::new(vec![Vec::new();4]),
             revision: AtomicU64::new(0),
             configure_lock: Mutex::new(()),
             redemption_lock: Mutex::new(()),
             save_lock: Mutex::new(()),
             jobs: (0..4).map(|_| Mutex::new(())).collect(),
+            live_sync_lock: Mutex::new(()),
             last_refresh: Mutex::new(vec![None; 4]),
+            connections: crate::kick_connections::Connections::default(),
+            query_lock: Mutex::new(()),
         }
     }
     pub async fn get_points(&self) -> Value {
@@ -82,7 +93,12 @@ impl KickServiceManager {
     pub async fn get_status(&self) -> Value {
         let config = self.config.read().await;
         let accounts = self.accounts.read().await;
-        json!({"masterEnabled":(0..4).any(|i|enabled(&config,i)),"accounts":accounts.iter().map(|a|json!({"status":a["status"],"username":a["username"],"lastError":a["error"],"joinedChannels":[]})).collect::<Vec<_>>()})
+        let mut states = Vec::new();
+        for (i,a) in accounts.iter().enumerate() {
+            let joined = self.connections.joined(i).await;
+            states.push(json!({"status":a["status"],"username":a["username"],"lastError":a["error"],"connectionErrors":self.connections.errors(i).await,"joinedChannels":joined,"connectionStatus":if joined.is_empty(){"disconnected"}else{"connected"}}));
+        }
+        json!({"masterEnabled":(0..4).any(|i|enabled(&config,i)),"accounts":states})
     }
     async fn emit(&self, app: &AppHandle) {
         let _ = app.emit_to("main", "kick:points", self.get_points().await);
@@ -98,6 +114,9 @@ impl KickServiceManager {
         let mut accounts = self.accounts.write().await;
         let mut last = self.last_refresh.lock().await;
         for i in 0..4 {
+            if config["accounts"][i] != value["accounts"][i] || enabled(&config,i) != enabled(&value,i) {
+                self.connections.retain(i, &BTreeSet::new()).await;
+            }
             if config["accounts"][i]["username"] != value["accounts"][i]["username"]
                 || enabled(&config, i) != enabled(&value, i)
             {
@@ -112,6 +131,13 @@ impl KickServiceManager {
         drop(last);
         drop(accounts);
         drop(config);
+        for index in 0..4 {
+            if !enabled(&*self.config.read().await, index) {
+                if let Some(window) = app.get_webview_window(&format!("kick-session-{}",index)) {
+                    let _ = window.destroy();
+                }
+            }
+        }
         self.emit(app).await;
     }
     pub fn start(self: &Arc<Self>, app: AppHandle) {
@@ -129,24 +155,34 @@ impl KickServiceManager {
                         });
                     }
                 }
+                manager.emit(&app).await;
             }
         });
     }
-    pub async fn sync_lives(&self, lives: Vec<String>) -> bool {
-        *self.lives.write().await = lives
-            .iter()
-            .filter_map(|s| crate::social_store::slug(s))
-            .take(40)
-            .collect();
-        true
+    pub async fn sync_lives(&self, app: &AppHandle, lives: Vec<Vec<String>>) -> Result<bool, String> {
+        let _sync = self.live_sync_lock.lock().await;
+        let _commit = self.configure_lock.lock().await;
+        let old = self.lives.read().await.clone();
+        *self.lives.write().await = (0..4).map(|i|crate::kick_connections::targets(lives.get(i).map(Vec::as_slice).unwrap_or(&[])).into_iter().collect()).collect();
+        let lives = self.lives.read().await.clone();
+        if old != lives {
+            self.revision.fetch_add(1,Ordering::SeqCst);
+            *self.last_refresh.lock().await = vec![None;4];
+        }
+        let config = self.config.read().await.clone();
+        let accounts = self.accounts.read().await.clone();
+        for index in 0..4 {
+            let keep = crate::kick_connections::targets(&lives[index]);
+            let desired = if enabled(&config,index) && accounts[index]["status"] == "authenticated" { keep.clone() } else { BTreeSet::new() };
+            self.connections.retain(index,&desired).await;
+        }
+        self.emit(app).await;
+        Ok(true)
     }
-    pub async fn set_channels(&self, channels: Vec<String>) {
+    pub async fn set_channels(&self, channels: Vec<Vec<String>>) {
         let _guard = self.configure_lock.lock().await;
-        let channels: BTreeSet<_> = channels
-            .iter()
-            .filter_map(|s| crate::social_store::slug(s))
-            .collect();
-        let next: Vec<_> = channels.into_iter().take(40).collect();
+        let next: Vec<Vec<String>> = (0..4).map(|i| channels.get(i).into_iter().flatten()
+            .filter_map(|s|crate::social_store::slug(s)).collect::<BTreeSet<_>>().into_iter().take(40).collect()).collect();
         let mut current = self.channels.write().await;
         if *current != next {
             *current = next;
@@ -161,13 +197,13 @@ impl KickServiceManager {
         if !channel.is_empty() && crate::social_store::slug(channel).is_none() {
             return Err("Canal Kick inválido".into());
         }
-        let url = url::Url::parse(crate::kick_browser::LOGIN_URL).unwrap();
+        let url = official_url(channel)?;
         self.ensure_session_window(app,index,true).await?;
         let window=app.get_webview_window(&format!("kick-session-{}",index)).ok_or("Janela Kick indisponível")?;
         window.navigate(url).map_err(|e|e.to_string())?;
         window.show().map_err(|e|e.to_string())?;
         window.set_focus().map_err(|e|e.to_string())?;
-        // Connection only: no channel/player is opened by this integration.
+        // The official channel page owns playback and watch-time accounting.
         Ok(true)
     }
     async fn ensure_session_window(&self,app:&AppHandle,index:usize,visible:bool)->Result<(),String>{
@@ -186,7 +222,7 @@ impl KickServiceManager {
                     tauri::async_runtime::spawn(async move {let _=manager.refresh(&app,index,true).await;});
                 }
             }).build().map_err(|e|e.to_string())?;
-        if let Some(view)=app.get_webview(&label){crate::account_proxy::authenticate(&view,proxy.as_ref()).await?;crate::kick_browser::prevent_playback(&view).await?;}
+        if let Some(view)=app.get_webview(&label){crate::account_proxy::authenticate(&view,proxy.as_ref()).await?;crate::kick_browser::mute(&view).await?;}
         let handle=app.clone();
         let manager=app.state::<Arc<Self>>().inner().clone();
         tauri::async_runtime::spawn(async move {
@@ -269,7 +305,7 @@ impl KickServiceManager {
         let generation = self.revision.load(Ordering::SeqCst);
         let expected =
             crate::social_store::slug(config["accounts"][index]["username"].as_str().unwrap_or(""));
-        let channels = self.channels.read().await.clone();
+        let channels = self.channels.read().await[index].clone();
         let mut state = self.accounts.read().await[index].clone();
         state["refreshing"] = json!(true);
         {
@@ -281,6 +317,8 @@ impl KickServiceManager {
         }
         self.emit(app).await;
         let result: Result<(), (String, String)> = async {
+            // A maximum of one temporary browser query across all four accounts.
+            let _query_serial = self.query_lock.lock().await;
             let query = crate::kick_browser::query_window(app,index).await
                 .map_err(|e| ("error".into(),e))?;
             let window = query.view().map_err(|e| ("error".into(),e))?;
@@ -295,7 +333,7 @@ impl KickServiceManager {
             let raw = crate::kick_browser::request(&window, &token, "/api/v1/user").await?;
             let user = raw.get("data").unwrap_or(&raw);
             let username = crate::social_store::slug(user["username"].as_str().unwrap_or(""))
-                .filter(|_| user["id"].is_number())
+                .filter(|_| user["id"].as_u64().map(|id|id>0).unwrap_or(false))
                 .ok_or((
                     "error".into(),
                     "Kick não confirmou a identidade da sessão.".into(),
@@ -309,6 +347,29 @@ impl KickServiceManager {
             state["username"] = json!(username);
             state["status"] = json!("authenticated");
             state["error"] = json!("");
+            let desired = crate::kick_connections::targets(&self.lives.read().await[index]);
+            let mut native_lives = Vec::new();
+            for slug in &desired {
+                let raw = match crate::kick_browser::request(&window,&token,&format!("/api/v2/channels/{slug}")).await {
+                    Ok(raw)=>raw,
+                    Err(error) if error.0=="login_required" || error.0=="rate_limited"=>return Err(error),
+                    Err(_)=>continue,
+                };
+                let data = raw.get("data").unwrap_or(&raw);
+                if data["livestream"]["is_live"] == false { continue; }
+                if let (Some(channel),Some(stream),Some(chatroom)) = (data["id"].as_u64(),data["livestream"]["id"].as_u64(),data["chatroom"]["id"].as_u64()) {
+                    if channel==0 || stream==0 || chatroom==0 {continue;}
+                    native_lives.push(crate::kick_connections::Live { slug:slug.clone(),channel,stream,chatroom });
+                }
+            }
+            // Serialize against disable/account swaps, so an obsolete query cannot reconnect.
+            {
+                let _commit = self.configure_lock.lock().await;
+                if generation != self.revision.load(Ordering::SeqCst) { return Ok(()); }
+                if enabled(&*self.config.read().await,index) {
+                    self.connections.sync(index,token.clone(),user["id"].as_u64().ok_or(("error".into(),"Identidade Kick inválida".into()))?,native_lives).await.map_err(|e|("error".into(),e))?;
+                }
+            }
             let mut balances = serde_json::Map::new();
             for slug in &channels {
                 let value = match crate::kick_browser::request(
@@ -357,6 +418,7 @@ impl KickServiceManager {
         }
         .await;
         if let Err((status, error)) = result {
+            self.connections.retain(index,&BTreeSet::new()).await;
             state["status"] = json!(status);
             state["error"] = json!(error);
             if let Some(values) = state["balances"].as_object_mut() {
@@ -393,7 +455,10 @@ impl KickServiceManager {
             self.emit(app).await;
             if connected {
                 if let Some(window) = app.get_webview_window(&format!("kick-session-{}",index)) {
-                    let _ = window.destroy();
+                    // Keep official live pages running during balance polling.
+                    if window.url().ok().map(|url| url.path().starts_with("/settings/")).unwrap_or(false) {
+                        let _ = window.destroy();
+                    }
                 }
             }
         }
@@ -475,6 +540,13 @@ impl KickServiceManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn official_live_navigation_preserves_the_requested_channel() {
+        assert_eq!(official_url("biscoitao").unwrap().as_str(), "https://kick.com/biscoitao");
+        assert_eq!(official_url("").unwrap().as_str(), crate::kick_browser::LOGIN_URL);
+        assert!(official_url("../user").is_err());
+        assert!(official_url("https://evil.test").is_err());
+    }
     #[tokio::test]
     async fn real_http_status_and_json_are_preserved_without_redirects() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};

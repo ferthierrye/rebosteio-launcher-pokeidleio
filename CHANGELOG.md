@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.24 — Conexões Kick com memória compartilhada
+
+- Até 12 lives por conta, com listas isoladas nas quatro contas e conexões nativas no processo Rust, sem abrir players automaticamente.
+- Consulta de saldo temporária e serializada entre contas; credenciais permanecem na memória nativa e cada conexão respeita o proxy da conta.
+- Conexões são encerradas ao desativar a conta, trocar a configuração ou retirar uma live. O status exige resposta do servidor; pontos continuam sendo exclusivamente o saldo consultado na Kick.
+
+## 2.0.23 — Reprodução das lives da Kick
+
+- Canais oficiais abrem na sessão isolada da conta, com reprodução de vídeo permitida e áudio inicialmente silenciado.
+- Acompanhamento abre uma live disponível por conta autenticada e habilitada ao receber a lista de lives do jogo.
+- Lives permanecem abertas entre consultas; o acompanhamento restaura janelas fechadas enquanto estiver habilitado. O botão de canal abre o canal solicitado.
+
 ## 2.0.22 — Apresentação do README
 
 - Restaurada a logo monocromática anterior, preta no tema claro.

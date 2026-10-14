@@ -117,6 +117,9 @@ pub async fn mute(view: &Webview) -> Result<(), String> {
 
 pub fn allowed_path(path: &str) -> bool {
     if path == "/api/v1/user" { return true; }
+    if let Some(slug) = path.strip_prefix("/api/v2/channels/") {
+        if crate::social_store::slug(slug).as_deref() == Some(slug) { return true; }
+    }
     ["/points", "/rewards", "/channel-points/channel-settings"].iter().any(|suffix|
         path.strip_prefix("/api/v2/channels/").and_then(|p|p.strip_suffix(suffix))
         .and_then(crate::social_store::slug).map(|slug|path==format!("/api/v2/channels/{slug}{suffix}")).unwrap_or(false))

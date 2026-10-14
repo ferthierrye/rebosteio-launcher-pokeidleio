@@ -3178,7 +3178,7 @@
         </h2>
         <button type="button" class="kick-bonus-close" id="kickBonusCloseBtn" aria-label="Fechar Bônus Kick">&times;</button>
       </div>
-      <p class="hint">Saldo real por canal, consultado com sua sessão da Kick. Entre na conta e assista pela página oficial para acumular pontos.</p>
+      <p class="hint">Saldo real por canal, consultado com sua sessão da Kick. Entre na conta para acompanhar as conexões e os saldos por canal.</p>
 
       <!-- Recompensas do Jogo Banner -->
       <div class="kick-rewards-banner">
@@ -3257,7 +3257,7 @@
             </div>
             <p><b>2. Preencha seu usuário:</b> Ao vincular no jogo, o launcher reconhece automaticamente seu usuário Kick.</p>
             <p><b>3. Pontos e Resgate:</b> Cada 300 pts viram 1h de EXP. Resgatar 3x dá 3h contínuas de bônus!</p>
-            <p><b>4. Saldo real:</b> Entre na Kick pela conta selecionada. O saldo é consultado a cada minuto. Para ganhar pontos, assista na página oficial; o chat público sozinho não confirma presença.</p>
+            <p><b>4. Saldo real:</b> Entre na Kick pela conta selecionada. O saldo é consultado a cada minuto. As conexões ficam ativas em segundo plano, sem abrir o vídeo. Somente o saldo retornado pela Kick confirma os pontos.</p>
           </div>
         </aside>
 
@@ -7814,15 +7814,16 @@
       }
 
       kickLatestChannelSnapshot = kickData;
-      const allChannels = kickCachedGameData.flatMap(snapshot => snapshot ? kickChannelsFromSnapshot(snapshot) : []);
       if (window.pokeAPI?.kickSetPointChannels) {
-        window.pokeAPI.kickSetPointChannels([...new Set(allChannels.map(c => c.login))]).catch(() => {});
+        window.pokeAPI.kickSetPointChannels(Array.from({length:4}, (_,i) =>
+          [...new Set(kickChannelsFromSnapshot(kickCachedGameData[i]).map(c => c.login))])).catch(() => {});
       }
-      const allLiveLogins = new Set(allChannels
-        .filter(c => c.aoVivo === true && c.ativo !== false)
-        .map(c => c.login));
+      const liveLoginsByAccount = Array.from({length:4}, (_, i) => [...new Set(
+        kickChannelsFromSnapshot(kickCachedGameData[i])
+          .filter(c => c.aoVivo === true && c.ativo !== false)
+          .map(c => c.login))]);
       if (window.pokeAPI && window.pokeAPI.kickSyncLives) {
-        window.pokeAPI.kickSyncLives(Array.from(allLiveLogins));
+        window.pokeAPI.kickSyncLives(liveLoginsByAccount);
       }
 
       if (kickBonusOverlay && kickBonusOverlay.classList.contains('show')) {
@@ -8226,7 +8227,7 @@
               <span class="kick-points-tag" title="${balance ? 'Consultado na Kick às ' + new Date(balance.checkedAt).toLocaleTimeString('pt-BR') : 'O saldo local antigo não é usado como saldo real'}">
                 <span>${points === null ? 'Saldo indisponível' : '<b>' + points.toLocaleString('pt-BR') + '</b> pts'}</span>
               </span>
-              <button type="button" class="kick-btn-test kick-open-channel" data-channel="${kickEscape(s.login)}">Atualizar saldo</button>
+              <button type="button" class="kick-btn-test kick-open-channel" data-channel="${kickEscape(s.login)}">Abrir canal</button>
               <div class="kick-reward-pill ${rewardClass}">
                 ${rewardLabel}
               </div>
@@ -8236,7 +8237,7 @@
       }).join('');
 
       kickStreamersList.querySelectorAll('.kick-open-channel').forEach(button => {
-        button.onclick = () => refreshKickRealPoints(kickSelectedAccount);
+        button.onclick = () => openKickOfficialChannel(kickSelectedAccount, button.dataset.channel);
       });
     }
 
@@ -8319,7 +8320,7 @@
 
         const pointState = kickPointsState.accounts[i];
         let statusColor = pointState?.status === 'authenticated' ? 'var(--color-accent)' : 'var(--color-text-secondary)';
-        let statusText = pointState?.status === 'authenticated' ? 'Sessão Kick confirmada' : 'Login Kick necessário para consultar saldo';
+        let statusText = pointState?.status === 'authenticated' ? `Sessão Kick confirmada · ${liveAcc.joinedChannels?.length || 0}/12 lives conectadas` : 'Login Kick necessário para consultar saldo';
 
         const isGameLinked = !!(acc.gameLinked || (gameKick && (gameKick.vinculado || gameKick.login)));
         const linkedLogin = (gameKick && gameKick.login) || acc.username || '';
@@ -8353,7 +8354,7 @@
           <details class="kick-token-help" open>
             <summary>Como acompanhar os pontos?</summary>
             <p>Entre na Kick na janela desta conta, usando o mesmo usuário vinculado ao jogo. Não é necessário copiar tokens. Cada conta mantém sua própria sessão.</p>
-            <p>O login fica salvo e o saldo atualiza a cada minuto. A janela fecha após confirmar a sessão. Nenhuma live é aberta ou mantida tocando em segundo plano.</p>
+            <p>O login fica salvo e o saldo atualiza a cada minuto. A janela fecha após confirmar a sessão. Até 12 lives desta conta ficam conectadas em segundo plano, sem abrir players. O saldo retornado pela Kick confirma os pontos.</p>
           </details>
           <div class="kick-acc-actions">
             <button type="button" class="kick-btn-test" id="kickTestBtn${i}">Verificar sessão</button>
