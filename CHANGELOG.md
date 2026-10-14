@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.26 — Correção do Pokémon ativo e sincronização de cura automática
+
+- Resolução do Pokémon ativo corrigida na sidebar e Battle HUD: unificação da chave `activeId` nos pacotes do servidor (`raw.data` unnested e eventos de troca/herói em batalha), coerção de tipos string/number na comparação de IDs e fallback direto ao elemento `.ativo` do DOM da equipe.
+- Sincronização automática do Auto Potion e Auto Revive no protocolo do jogo via pacote `auto.set`: garante envio periódico das listas de poções (`potionIds`) e revives (`reviveIds`), ativação de `autoVoltarHunt` e elevação preventiva do limiar de cura para 60% de HP (`hpLimiar: 0.6`) para evitar nocautes instantâneos por dano massivo.
+- Adicionado controle de limiar de HP para uso de poções nas configurações do Reabastecimento Automático (Auto Supply) na interface.
+
 ## 2.0.25 — Reconexão automática no modo Headless
 
 - Sessões headless reconectam automaticamente com backoff exponencial (de 2s a 30s) após quedas de rede ou encerramento inesperado de WebSocket.

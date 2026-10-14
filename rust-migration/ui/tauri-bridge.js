@@ -185,7 +185,7 @@
     webviewFillCreds: (index, email, pass) => invoke('webview_fill_creds', { index, email, pass }).catch(() => false),
 
     // 10. Metadados
-    appVersion: '2.0.25'
+    appVersion: '2.0.26'
   };
 
   // O launcher carrega as credenciais uma única vez durante sua inicialização.

@@ -25,7 +25,7 @@
     const id = safeDex(p.sid); if (!id) return '';
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.shiny ? 'shiny/' : ''}${id}.png`;
   };
-  const getLead = (r) => (r && r.team && r.team.length) ? ((r.team.find(p => p.ld)) || (r.activeId ? r.team.find(p => p.id === r.activeId) : null) || r.team[0]) : null;
+  const getLead = (r) => (r && r.team && r.team.length) ? ((r.team.find(p => p.ld)) || (r.activeId ? r.team.find(p => String(p.id) === String(r.activeId)) : null) || r.team[0]) : null;
   const ico = (name) => {
     const icons = {
       moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18.6 15.8A8 8 0 0 1 8.2 5.4 8 8 0 1 0 18.6 15.8Z"/><path d="M17.5 3.5v4M15.5 5.5h4" stroke-width="1.2"/></svg>',

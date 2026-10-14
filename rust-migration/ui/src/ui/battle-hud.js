@@ -534,7 +534,7 @@
 
       // 1. Líder do Jogador
       const lead = (state && state.team && state.team.length)
-        ? (state.team.find(p => p.ld) || (state.activeId ? state.team.find(p => p.id === state.activeId) : null) || state.team[0])
+        ? (state.team.find(p => p.ld) || (state.activeId ? state.team.find(p => String(p.id) === String(state.activeId)) : null) || state.team[0])
         : null;
 
       const leadDex = lead ? safeDex(lead.sid) : 0;
