@@ -1,10 +1,13 @@
 <div align="center">
 
-<img src="src/ui/assets/pokeidle-logo-smooth.png" width="320" alt="PokeIdle IO">
+<img src="src/ui/assets/pokeidle-logo-smooth.png" width="320" alt="PokeIdle.IO">
 
-<br><br>
+<p>By</p>
 
-<img src="src/ui/assets/rebosteio-by-nailo.png" width="280" alt="PIO Rebosteio by Nailo">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="src/ui/assets/rebosteio-logo.png">
+  <img src="src/ui/assets/rebosteio-logo-ink.png" width="280" alt="Rebosteio">
+</picture>
 
 # PIO Rebosteio — Launcher Multi-Contas
 
@@ -114,6 +117,6 @@ Vale perguntar, ensinar e discordar com respeito. Cada contribuição ajuda o pr
 
 **Boa caçada — e que venha aquele shiny!** ✨
 
-<sub>PIO Rebosteio by Nailo · Comunidade PokeIdle</sub>
+<sub>PokeIdle.IO · By Rebosteio · Comunidade PokeIdle</sub>
 
 </div>

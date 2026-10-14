@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.20 — Assinatura do README
+
+- Substituída a assinatura “Rebosteio by Nailo” por “PokeIdle.IO / By / Rebosteio” no cabeçalho, com logo Rebosteio adequada aos temas claro e escuro.
+
 ## 2.0.19 — Consumo por modo
 
 - Adicionados gráfico de médias e tabela de CPU/RAM no README para os cinco modos, com os valores fornecidos pelo mantenedor.
