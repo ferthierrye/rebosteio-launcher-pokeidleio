@@ -289,7 +289,9 @@ impl WebviewManager {
             .initialization_script(crate::webview_memory::background_economy_script())
             .initialization_script(include_str!("gameplay_bridge.js"))
             .initialization_script(include_str!("../../ui/src/ui/inventory-state.js"))
-            .initialization_script(include_str!("launcher_gameplay.js"));
+            .initialization_script(include_str!("launcher_gameplay.js"))
+            .initialization_script(include_str!("daily_pass.js"))
+            .initialization_script(concat!(include_str!("../../ui/src/ui/auto-depot.js"), "\nPioAutoDepot.installAutoDepot();"));
 
         if let Some(p)=&proxy{builder=builder.proxy_url(p.url.clone());}
         builder = builder.initialization_script(include_str!("guest_compat.js"))

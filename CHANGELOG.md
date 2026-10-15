@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.0.30 — Depot automático no Headless
+
+- Venda automática do Depot também na conexão nativa Headless, a cada minuto e após confirmação das proteções de Shiny, nota ≥ 3,5 e P5.
+- Preferências por personagem compartilhadas entre jogo aberto e Headless, preservadas após reconexão e reinício; migração das opções já salvas no jogo.
+- Venda pausada ao desativar a opção ou qualquer proteção; configurações posteriores não são sobrescritas.
+- Kick: reconhecimento das recompensas EXP, Catch e Lure sem depender do texto “15%”; tratamento de registros de resgate incompletos e validação dos saldos antes de confirmar gastos.
+
+## 2.0.29 — Venda automática do Depot e passe diário
+
+- Auto vender Depot a cada minuto, com controle junto às opções de Coleção e preferência individual por personagem.
+- Configuração inicial única de Auto Coleção Shiny, nota ≥ 3,5 e P5; a venda aguarda confirmação das três proteções pelo servidor.
+- Alterações posteriores nas opções são preservadas; venda pausa se uma proteção for desativada e durante desconexões.
+
+- Recolhimento automático do passe diário nas quatro contas conectadas, inclusive no modo Headless.
+- Respeita nível mínimo, virada de Brasília e resgate VIP pendente; limita tentativas e aguarda confirmação do servidor.
+
+## 2.0.27 — Restauração pela bandeja
+
+- Restauração desfaz a minimização antes de mostrar e focar a janela; operações nativas são despachadas fora dos callbacks da bandeja e do redimensionamento.
+- Clique simples, duplo clique e a opção Abrir restauram o launcher, com registro de falhas no log.
+
 ## 2.0.26 — Correção do Pokémon ativo e sincronização de cura automática
 
 - Resolução do Pokémon ativo corrigida na sidebar e Battle HUD: unificação da chave `activeId` nos pacotes do servidor (`raw.data` unnested e eventos de troca/herói em batalha), coerção de tipos string/number na comparação de IDs e fallback direto ao elemento `.ativo` do DOM da equipe.

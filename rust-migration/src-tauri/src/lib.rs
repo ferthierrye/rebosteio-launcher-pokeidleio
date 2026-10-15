@@ -3,6 +3,8 @@ pub mod account_proxy;
 pub mod desktop_settings;
 pub mod social_store;
 pub mod game_headless;
+pub mod daily_pass;
+pub mod auto_depot;
 pub mod kick_service;
 pub mod kick_connections;
 pub mod kick_browser;
@@ -755,11 +757,8 @@ pub fn run() {
                 if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
                     window.app_handle().exit(0);
                 }
-                if matches!(event, tauri::WindowEvent::Resized(_)) && window.is_minimized().unwrap_or(false)
-                    && window.state::<desktop_settings::DesktopSettings>().min_to_tray()
-                    && window.app_handle().tray_by_id("pio-main").is_some() {
-                    let _ = window.hide();
-                    webview_memory::set_window_background(window.app_handle(), "main", true);
+                if matches!(event, tauri::WindowEvent::Resized(_)) {
+                    desktop_settings::minimize_to_tray(window.app_handle());
                 }
             }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Resized(_)) {
@@ -774,6 +773,8 @@ pub fn run() {
         .manage(webview_memory::MemoryPolicy::default())
         .invoke_handler(tauri::generate_handler![
             app_version,
+            auto_depot::auto_depot_get,
+            auto_depot::auto_depot_set,
             creds_load,
             creds_save,
             window_control,

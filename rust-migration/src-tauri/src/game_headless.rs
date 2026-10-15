@@ -40,6 +40,10 @@ pub struct HeadlessMetrics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeadlessState {
+    #[serde(skip)]
+    pub daily_pass: crate::daily_pass::DailyPass,
+    #[serde(skip)]
+    pub auto_depot: crate::auto_depot::AutoDepot,
     pub ok: bool,
     pub live: bool,
     pub i: usize,
@@ -83,6 +87,8 @@ impl HeadlessState {
             .unwrap_or(0);
         let cid = String::new();
         Self {
+            daily_pass: Default::default(),
+            auto_depot: Default::default(),
             ok: true,
             live: false,
             i: index,
@@ -448,6 +454,12 @@ impl GameHeadlessManager {
                             }
                         }
                         _ = sec_interval.tick() => {
+                            if let Ok(Some(command)) = state.auto_depot.next_command(crate::auto_depot::now_ms()) {
+                                if write.send(Message::Text(command.to_string().into())).await.is_err() { break; }
+                            }
+                            if let Some(command) = state.daily_pass.command(crate::daily_pass::now_ms()) {
+                                if write.send(Message::Text(command.to_string().into())).await.is_err() { break; }
+                            }
                             state.a.seconds = start_time.elapsed().as_secs();
                             if state.a.seconds > 0 {
                                 state.a.xph = (state.a.xp * 3600) / state.a.seconds;
@@ -635,6 +647,8 @@ fn update_player_location(player: &serde_json::Value, state: &mut HeadlessState)
 }
 
 fn parse_game_message(m: &serde_json::Value, state: &mut HeadlessState) -> bool {
+    state.auto_depot.observe(m);
+    state.daily_pass.observe(m, crate::daily_pass::now_ms());
     let t = m.get("t").and_then(|v| v.as_str()).unwrap_or("");
     let msg_type = m.get("type").and_then(|v| v.as_str()).unwrap_or("");
     let mut changed = false;

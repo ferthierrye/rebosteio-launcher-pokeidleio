@@ -7,5 +7,5 @@
     "urls": ["https://pokeidle.io/*"]
   },
   "webviews": ["game-account-*", "embedded-acc-*", "account-viewer-*", "family-*-viewer-*"],
-  "permissions": ["allow-report-gameplay"]
+  "permissions": ["allow-report-gameplay", "allow-auto-depot"]
 }

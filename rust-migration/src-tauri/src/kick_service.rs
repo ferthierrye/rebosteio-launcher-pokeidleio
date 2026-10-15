@@ -52,7 +52,21 @@ fn verified_balance(value: &Value) -> Option<u64> {
         .filter(|n| *n <= 9_007_199_254_740_991)
 }
 
-fn journal_with_receipt(mut journal:Value,index:usize,receipt:Value)->Value {journal["accounts"][index]=receipt;journal}
+fn journal_with_receipt(mut journal: Value, index: usize, receipt: Value) -> Value {
+    if !journal.is_object() {
+        journal = json!({});
+    }
+    if !journal["accounts"].is_array() {
+        journal["accounts"] = json!([{}, {}, {}, {}]);
+    }
+    if let Some(arr) = journal["accounts"].as_array_mut() {
+        while arr.len() <= index {
+            arr.push(json!({}));
+        }
+        arr[index] = receipt;
+    }
+    journal
+}
 
 pub struct KickServiceManager {
     config: RwLock<Value>,
@@ -486,11 +500,25 @@ impl KickServiceManager {
     }
     async fn auto_redeem(&self,view:&tauri::Webview,token:&str,index:usize,generation:u64,config:&Value,state:&mut Value) {
         state["redemption"]=json!({"status":"off","message":"Resgate automático desligado."});
-        let mut journal=match crate::social_store::try_load("kick-redemptions") {Ok(v)=>v,Err(_)=>{
-            state["redemption"]=json!({"status":"paused","message":"Não foi possível ler o registro de resgates. Automático pausado."});return;
-        }};
-        while journal["accounts"].as_array().map(|a|a.len()).unwrap_or(0)<4 {journal["accounts"].as_array_mut().unwrap().push(json!({}));}
-        let previous=&journal["accounts"][index];
+        let mut journal = match crate::social_store::try_load("kick-redemptions") {
+            Ok(v) => v,
+            Err(_) => {
+                state["redemption"] = json!({"status":"paused","message":"Não foi possível ler o registro de resgates. Automático pausado."});
+                return;
+            }
+        };
+        if !journal.is_object() {
+            journal = json!({});
+        }
+        if !journal["accounts"].is_array() {
+            journal["accounts"] = json!([{}, {}, {}, {}]);
+        }
+        if let Some(arr) = journal["accounts"].as_array_mut() {
+            while arr.len() < 4 {
+                arr.push(json!({}));
+            }
+        }
+        let previous = journal.get("accounts").and_then(|a| a.get(index)).unwrap_or(&Value::Null);
         let prev_exp = previous["expiresAt"].as_u64().unwrap_or_else(|| {
             if previous["status"] == "confirmed" {
                 previous["at"].as_u64().unwrap_or(0) + 3_600_000
@@ -503,42 +531,61 @@ impl KickServiceManager {
             active["expiresAt"] = json!(prev_exp);
             state["activeRedemption"] = active;
         }
-        if config["autoClaim"]!=true || config["autoClaimProtocol"]!=1 || !enabled(config,index) {return;}
-        let linked=crate::social_store::slug(config["accounts"][index]["linkedUsername"].as_str().unwrap_or(""));
-        if config["accounts"][index]["gameLinked"]!=true || linked.as_deref()!=state["username"].as_str() {
-            state["redemption"]=json!({"status":"waiting_link","message":"Confirme o vínculo desta mesma conta Kick no jogo para resgatar."});return;
+        if config["autoClaim"] != true || config["autoClaimProtocol"] != 1 || !enabled(config, index) { return; }
+        let linked = crate::social_store::slug(config["accounts"][index]["linkedUsername"].as_str().unwrap_or(""));
+        if config["accounts"][index]["gameLinked"] != true || linked.as_deref() != state["username"].as_str() {
+            state["redemption"] = json!({"status":"waiting_link","message":"Confirme o vínculo desta mesma conta Kick no jogo para resgatar."});
+            return;
         }
-        let _serial=self.redemption_lock.lock().await;
-        if previous["status"]=="pending" {
-            state["redemption"]=json!({"status":"paused","message":format!("Resgate em @{} sem confirmação. Automático pausado para evitar duplicação; confira o histórico na Kick.",previous["channel"].as_str().unwrap_or(""))});return;
+        let _serial = self.redemption_lock.lock().await;
+        if previous["status"] == "pending" {
+            state["redemption"] = json!({"status":"paused","message":format!("Resgate em @{} sem confirmação. Automático pausado para evitar duplicação; confira o histórico na Kick.", previous["channel"].as_str().unwrap_or(""))});
+            return;
         }
-        if previous["status"]=="rejected" && now().saturating_sub(previous["at"].as_u64().unwrap_or(0))<300_000 {
-            state["redemption"]=previous.clone();return;
+        if previous["status"] == "rejected" && now().saturating_sub(previous["at"].as_u64().unwrap_or(0)) < 300_000 {
+            state["redemption"] = previous.clone();
+            return;
         }
-        state["redemption"]=json!({"status":"waiting_points","message":"Automático ativo: aguardando saldo e recompensa disponíveis."});
-        let priority=config["claimPriority"].as_str().unwrap_or("exp");
-        let candidate=state["balances"].as_object().into_iter().flatten().find_map(|(slug,b)|crate::kick_rewards::eligible(b,priority,now()).map(|r|(slug.clone(),r.clone(),b["points"].as_u64().unwrap())));
-        let Some((slug,reward,before))=candidate else{return;};
+        state["redemption"] = json!({"status":"waiting_points","message":"Automático ativo: aguardando saldo e recompensa disponíveis."});
+        let priority = config["claimPriority"].as_str().unwrap_or("exp");
+        let candidate = state["balances"].as_object().into_iter().flatten().find_map(|(slug, b)| {
+            let r = crate::kick_rewards::eligible(b, priority, now())?;
+            let pts = b.get("points")?.as_u64()?;
+            Some((slug.clone(), r.clone(), pts))
+        });
+        let Some((slug, reward, before)) = candidate else { return; };
         // Hold configuration through submission: disabling or switching accounts cannot race a spend.
-        let _configuration=self.configure_lock.lock().await;
-        if generation!=self.revision.load(Ordering::SeqCst) {return;}
-        let transaction=match crate::kick_browser::transaction_id(view).await {Ok(id)=>id,Err(_)=>{return;}};
-        let receipt=json!({"status":"pending","channel":slug,"reward":reward,"transaction":transaction,"username":state["username"],"before":before,"at":now(),"message":"Resgate enviado; aguardando confirmação."});
-        journal["accounts"][index]=receipt.clone();
-        if crate::social_store::save("kick-redemptions",&journal).is_err() {
-            state["redemption"]=json!({"status":"paused","message":"Falha ao registrar resgate; nenhum ponto foi gasto."});return;
+        let _configuration = self.configure_lock.lock().await;
+        if generation != self.revision.load(Ordering::SeqCst) { return; }
+        let transaction = match crate::kick_browser::transaction_id(view).await { Ok(id) => id, Err(_) => { return; } };
+        let receipt = json!({"status":"pending","channel":slug,"reward":reward,"transaction":transaction,"username":state["username"],"before":before,"at":now(),"message":"Resgate enviado; aguardando confirmação."});
+        if let Some(arr) = journal["accounts"].as_array_mut() {
+            if index < arr.len() { arr[index] = receipt.clone(); }
         }
-        let response=crate::kick_browser::redeem(view,token,&slug,reward["id"].as_str().unwrap(),&transaction).await;
-        let mut receipt=receipt;
-        if let Ok(status)=response {
-            if [400,401,403,404,410,422,429].contains(&status) {
-                receipt["status"]=json!("rejected");receipt["message"]=json!(format!("Kick recusou o resgate em @{slug} (HTTP {status}). Nova tentativa em 5 minutos."));
+        if crate::social_store::save("kick-redemptions", &journal).is_err() {
+            state["redemption"] = json!({"status":"paused","message":"Falha ao registrar resgate; nenhum ponto foi gasto."});
+            return;
+        }
+        let reward_id = match reward.get("id").and_then(Value::as_str) {
+            Some(id) => id,
+            None => return,
+        };
+        let response = crate::kick_browser::redeem(view, token, &slug, reward_id, &transaction).await;
+        let mut receipt = receipt;
+        if let Ok(status) = response {
+            if [400, 401, 403, 404, 410, 422, 429].contains(&status) {
+                receipt["status"] = json!("rejected");
+                receipt["message"] = json!(format!("Kick recusou o resgate em @{slug} (HTTP {status}). Nova tentativa em 5 minutos."));
             } else if (200..300).contains(&status) {
-                if let Ok(raw)=crate::kick_browser::request(view,token,&format!("/api/v2/channels/{slug}/points")).await {
-                    if let Some(after)=verified_balance(&raw) {
-                        state["balances"][&slug]["points"]=json!(after);state["balances"][&slug]["checkedAt"]=json!(now());
-                        if before.checked_sub(reward["cost"].as_u64().unwrap())==Some(after) {
-                            receipt["status"]=json!("confirmed");receipt["message"]=json!(format!("Resgate confirmado na Kick: {} em @{slug}. O jogo confirma a aplicação do buff.",reward["key"].as_str().unwrap()));
+                if let Ok(raw) = crate::kick_browser::request(view, token, &format!("/api/v2/channels/{slug}/points")).await {
+                    if let Some(after) = verified_balance(&raw) {
+                        state["balances"][&slug]["points"] = json!(after);
+                        state["balances"][&slug]["checkedAt"] = json!(now());
+                        let reward_cost = reward.get("cost").and_then(Value::as_u64).unwrap_or(0);
+                        let reward_key = reward.get("key").and_then(Value::as_str).unwrap_or("exp");
+                        if reward_cost > 0 && before.checked_sub(reward_cost) == Some(after) {
+                            receipt["status"] = json!("confirmed");
+                            receipt["message"] = json!(format!("Resgate confirmado na Kick: {} em @{slug}. O jogo confirma a aplicação do buff.", reward_key));
                             let current_now = now();
                             let new_expires_at = if prev_exp > current_now {
                                 prev_exp + 3_600_000
@@ -546,17 +593,20 @@ impl KickServiceManager {
                                 current_now + 3_600_000
                             };
                             receipt["expiresAt"] = json!(new_expires_at);
-                            state["activeRedemption"]=receipt.clone();
+                            state["activeRedemption"] = receipt.clone();
                         }
                     }
                 }
             }
         }
-        if receipt["status"]=="pending" {receipt["message"]=json!(format!("Resgate em @{slug} sem confirmação. Automático pausado para evitar duplicação; confira o histórico na Kick."));}
-        if crate::social_store::save("kick-redemptions",&journal_with_receipt(journal,index,receipt.clone())).is_err() {
-            receipt["status"]=json!("paused");receipt["message"]=json!("Falha ao salvar a confirmação. Automático pausado; confira o histórico na Kick.");
+        if receipt["status"] == "pending" {
+            receipt["message"] = json!(format!("Resgate em @{slug} sem confirmação. Automático pausado para evitar duplicação; confira o histórico na Kick."));
         }
-        state["redemption"]=receipt;
+        if crate::social_store::save("kick-redemptions", &journal_with_receipt(journal, index, receipt.clone())).is_err() {
+            receipt["status"] = json!("paused");
+            receipt["message"] = json!("Falha ao salvar a confirmação. Automático pausado; confira o histórico na Kick.");
+        }
+        state["redemption"] = receipt;
     }
 
     pub async fn test_connection(username: String, token: String) -> Result<bool, String> {

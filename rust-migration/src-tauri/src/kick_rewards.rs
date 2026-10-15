@@ -1,18 +1,26 @@
 use serde_json::{json, Value};
 
-// Only the three game rewards observed in the official channel catalog qualify.
+// Recognizes official PokeIdle rewards on Kick channels (EXP: 300, Catch: 500, Lure: 1000).
 pub fn catalog(raw: &Value) -> Vec<Value> {
     raw["data"].as_array().into_iter().flatten().filter_map(|r| {
         let title = r["title"].as_str()?.to_lowercase();
-        let description = r["description"].as_str()?.to_lowercase();
-        if !description.contains("pokeidle") || !title.contains("15%") { return None; }
-        let (key, cost) = if title.contains("xp") { ("exp",300) }
-            else if title.contains("capture boost") { ("catch",500) }
-            else if title.contains("secret lure") { ("lure",1000) } else { return None; };
+        let description = r["description"].as_str().unwrap_or("").to_lowercase();
+        if !description.contains("pokeidle") { return None; }
+        let (key, cost) = if title.contains("xp") || title.contains("exp") { ("exp", 300) }
+            else if title.contains("capture") || title.contains("catch") { ("catch", 500) }
+            else if title.contains("lure") || title.contains("secret") || title.contains("isca") { ("lure", 1000) }
+            else { return None; };
         let id = r["id"].as_str()?;
-        if id.len()!=26 || !id.bytes().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {return None;}
-        Some(json!({"key":key,"id":id,"cost":cost,"available":r["cost"].as_u64()==Some(cost)
-            && r["is_enabled"]==true && r["is_paused"]==false && r["is_user_input_required"]==false}))
+        if id.len() != 26 || !id.bytes().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) { return None; }
+        Some(json!({
+            "key": key,
+            "id": id,
+            "cost": cost,
+            "available": r["cost"].as_u64() == Some(cost)
+                && r["is_enabled"] == true
+                && r["is_paused"] == false
+                && r["is_user_input_required"] == false
+        }))
     }).collect()
 }
 
@@ -36,6 +44,13 @@ mod tests {
         r["is_paused"]=json!(false);r["cost"]=json!(301);
         assert_eq!(catalog(&json!({"data":[r.clone()]}))[0]["available"],false);
         r["description"]=json!("sound effect");assert!(catalog(&json!({"data":[r]})).is_empty());
+
+        let lure = json!({"id":"01M3WZ35RA642BBYFZ89CDQ23X","title":"Secret Lure","description":"1 hora no PokeIdle","cost":1000,"is_enabled":true,"is_paused":false,"is_user_input_required":false});
+        let cat = catalog(&json!({"data":[lure]}));
+        assert_eq!(cat.len(), 1);
+        assert_eq!(cat[0]["key"], "lure");
+        assert_eq!(cat[0]["cost"], 1000);
+        assert_eq!(cat[0]["available"], true);
     }
     #[test]
     fn requires_fresh_balance_catalog_selected_kind_and_sufficient_points() {

@@ -9,6 +9,7 @@ struct Preferences {
 }
 pub struct DesktopSettings {
     preferences: Mutex<Preferences>,
+    window_transition: Mutex<()>,
 }
 fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into())).join("pionailo")
@@ -21,6 +22,7 @@ impl DesktopSettings {
             .unwrap_or(Preferences { min_to_tray: true });
         Self {
             preferences: Mutex::new(preferences),
+            window_transition: Mutex::new(()),
         }
     }
     pub fn min_to_tray(&self) -> bool {
@@ -87,12 +89,45 @@ fn write_shortcut(path:&std::path::Path,executable:&std::path::Path,_app_id:Opti
     if !output.status.success() || !path.is_file(){return Err("Não foi possível salvar o atalho de inicialização.".into());}Ok(())
 }
 pub fn restore_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-        crate::webview_memory::set_window_background(app, "main", false);
-    }
+    // Queue native operations outside the tray/window callback. Showing a still
+    // minimized window can emit another resize and send it straight back to tray.
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let settings = app.state::<DesktopSettings>();
+        let _transition = settings.window_transition.lock().unwrap();
+        if let Some(window) = app.get_webview_window("main") {
+            let result = window.unminimize()
+                .and_then(|_| window.show())
+                .and_then(|_| window.set_focus());
+            if let Err(error) = result {
+                eprintln!("[tray] Falha ao restaurar janela: {error}");
+                return;
+            }
+            crate::webview_memory::set_window_background(&app, "main", false);
+        }
+    });
+}
+
+pub fn minimize_to_tray(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let settings = app.state::<DesktopSettings>();
+        let _transition = settings.window_transition.lock().unwrap();
+        if !settings.min_to_tray() || app.tray_by_id("pio-main").is_none() {
+            return;
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            // Recheck after earlier restore requests, so a stale resize cannot hide it.
+            if !window.is_minimized().unwrap_or(false) {
+                return;
+            }
+            if let Err(error) = window.hide() {
+                eprintln!("[tray] Falha ao ocultar janela: {error}");
+                return;
+            }
+            crate::webview_memory::set_window_background(&app, "main", true);
+        }
+    });
 }
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     use tauri::{
@@ -114,7 +149,8 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_tray_icon_event(|tray, event| {
             if matches!(
                 event,
-                TrayIconEvent::Click {
+                TrayIconEvent::DoubleClick { button: MouseButton::Left, .. }
+                | TrayIconEvent::Click {
                     button: MouseButton::Left,
                     button_state: MouseButtonState::Up,
                     ..
