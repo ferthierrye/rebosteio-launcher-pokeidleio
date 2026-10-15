@@ -36,6 +36,10 @@ class PokeIdleHeadlessClient extends EventEmitter {
       diamonds: options.diamonds || 0,
       level: options.level || 0,
       activeId: options.activeId || null,
+      twitch: options.twitch || null,
+      kick: options.kick || null,
+      invMap: options.invMap || {},
+      rawDrops: options.rawDrops || {},
       a: {
         seconds: 0,
         xph: 0,
@@ -158,6 +162,18 @@ class PokeIdleHeadlessClient extends EventEmitter {
         this.state.balls = total;
       }
 
+      if (est.items && typeof est.items === 'object') {
+        this.state.invMap = Object.assign({}, this.state.invMap, est.items);
+      }
+
+      if (est.twitch && typeof est.twitch === 'object') {
+        this.state.twitch = est.twitch;
+      }
+
+      if (est.kick && typeof est.kick === 'object') {
+        this.state.kick = est.kick;
+      }
+
       hasChange = true;
     }
 
@@ -183,9 +199,37 @@ class PokeIdleHeadlessClient extends EventEmitter {
           if (ev.shiny) {
             this.state.a.shinyFound = (this.state.a.shinyFound || 0) + 1;
           }
+          if (Array.isArray(ev.drops)) {
+            if (!this.state.rawDrops) this.state.rawDrops = {};
+            if (!this.state.invMap) this.state.invMap = {};
+            for (const l of ev.drops) {
+              const k = l.itemId || l.id || l.nome;
+              const q = l.qtd || l.qty || 1;
+              const d = this.state.rawDrops[k] || (this.state.rawDrops[k] = { id: l.itemId || l.id || 0, name: l.nome || '', qty: 0 });
+              d.qty += q;
+              if (l.itemId != null) {
+                const cur = Number(this.state.invMap[l.itemId]) || 0;
+                this.state.invMap[l.itemId] = cur + q;
+              }
+            }
+          }
           hasChange = true;
         } else if (ev.k === 'bossMorto') {
           this.state.a.xp = (this.state.a.xp || 0) + (ev.xp || ev.xpTreinador || 0);
+          if (Array.isArray(ev.drops)) {
+            if (!this.state.rawDrops) this.state.rawDrops = {};
+            if (!this.state.invMap) this.state.invMap = {};
+            for (const l of ev.drops) {
+              const k = l.itemId || l.id || l.nome;
+              const q = l.qtd || l.qty || 1;
+              const d = this.state.rawDrops[k] || (this.state.rawDrops[k] = { id: l.itemId || l.id || 0, name: l.nome || '', qty: 0 });
+              d.qty += q;
+              if (l.itemId != null) {
+                const cur = Number(this.state.invMap[l.itemId]) || 0;
+                this.state.invMap[l.itemId] = cur + q;
+              }
+            }
+          }
           hasChange = true;
         } else if (ev.k === 'bola') {
           this.state.a.balls = (this.state.a.balls || 0) + 1;
@@ -211,6 +255,18 @@ class PokeIdleHeadlessClient extends EventEmitter {
       if (est.balls && typeof est.balls === 'object') {
         const total = Object.values(est.balls).reduce((sum, v) => sum + (+v || 0), 0);
         this.state.balls = total;
+        hasChange = true;
+      }
+      if (est.items && typeof est.items === 'object') {
+        this.state.invMap = Object.assign({}, this.state.invMap, est.items);
+        hasChange = true;
+      }
+      if (est.twitch && typeof est.twitch === 'object') {
+        this.state.twitch = Object.assign(this.state.twitch || {}, est.twitch);
+        hasChange = true;
+      }
+      if (est.kick && typeof est.kick === 'object') {
+        this.state.kick = Object.assign(this.state.kick || {}, est.kick);
         hasChange = true;
       }
       if (Array.isArray(est.pkMud) && Array.isArray(this.state.team)) {

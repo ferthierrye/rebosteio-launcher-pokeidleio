@@ -56,6 +56,8 @@ pub struct HeadlessState {
     pub last_ball_id: Option<serde_json::Value>,
     pub ball_map: serde_json::Map<String, serde_json::Value>,
     pub inv_map: serde_json::Map<String, serde_json::Value>,
+    #[serde(default)]
+    pub raw_drops: serde_json::Map<String, serde_json::Value>,
     pub gold: i64,
     pub diamonds: i64,
     pub level: u32,
@@ -96,6 +98,7 @@ impl HeadlessState {
             last_ball_id: None,
             ball_map: Default::default(),
             inv_map: Default::default(),
+            raw_drops: Default::default(),
             gold: 0,
             diamonds: 0,
             level: 0,
@@ -641,7 +644,7 @@ fn parse_game_message(m: &serde_json::Value, state: &mut HeadlessState) -> bool 
     if t == "reset" || t == "disconnected" || t == "telemetry_gap" {
         state.live = false;
         state.balls_known = false; state.inventory_known = false;
-        state.ball_map.clear(); state.inv_map.clear(); state.ball_catalog.clear();
+        state.ball_map.clear(); state.inv_map.clear(); state.raw_drops.clear(); state.ball_catalog.clear();
         state.automation = json!({}); state.last_ball_id = None;
         state.twitch = None; state.kick = None;
         return true;
@@ -654,7 +657,7 @@ fn parse_game_message(m: &serde_json::Value, state: &mut HeadlessState) -> bool 
         if full {
             changed = true;
             state.cid.clear();
-            state.ball_map.clear(); state.inv_map.clear();
+            state.ball_map.clear(); state.inv_map.clear(); state.raw_drops.clear();
             state.balls_known = false; state.inventory_known = false;
             state.automation = json!({}); state.last_ball_id = None;
             if t == "welcome" { state.ball_catalog.clear(); }
@@ -687,11 +690,16 @@ fn parse_game_message(m: &serde_json::Value, state: &mut HeadlessState) -> bool 
         }
 
         for (key, target) in [("twitch", &mut state.twitch), ("kick", &mut state.kick)] {
-            if let Some(value) = player.get(key) {
+            let value = player.get(key)
+                .or_else(|| data.get(key))
+                .or_else(|| m.get(key))
+                .or_else(|| data.get("estado").and_then(|e| e.get(key)))
+                .or_else(|| m.get("estado").and_then(|e| e.get(key)));
+            if let Some(value) = value {
                 if value.is_null() { *target = None; }
                 else if value.is_object() {
                     let mut clean = target.clone().unwrap_or_else(||json!({}));
-                    for name in ["login","vinculado","assistindo","pctAtual","emLives","pontos","pontosPorCanal","bonusExp","bonusCatch","bonusLure","lives","oficiais","offline","assistindoEm"] {
+                    for name in ["login","vinculado","assistindo","pctAtual","emLives","pontos","pontosPorCanal","bonusExp","bonusCatch","bonusLure","bonusTime","bonusQty","bonusExpiresAt","tempo","time","expires","lives","oficiais","offline","assistindoEm"] {
                         if let Some(field) = value.get(name) { clean[name] = field.clone(); }
                     }
                     *target = Some(clean);
@@ -781,6 +789,104 @@ fn parse_game_message(m: &serde_json::Value, state: &mut HeadlessState) -> bool 
                     state.a.xp += xp;
                     if let Some(ouro) = ev.get("ouro").or_else(|| ev.get("gold")).and_then(|v| v.as_i64()) {
                         state.session_gold += ouro;
+                    }
+                    if let Some(drops) = ev.get("drops").or_else(|| ev.get("loot")).and_then(|v| v.as_array()) {
+                        for drop_item in drops {
+                            let item_id = drop_item
+                                .get("itemId")
+                                .or_else(|| drop_item.get("id"))
+                                .and_then(|v| v.as_u64())
+                                .map(|n| n.to_string());
+                            let qty = drop_item
+                                .get("qtd")
+                                .or_else(|| drop_item.get("qty"))
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1);
+                            let name = drop_item
+                                .get("nome")
+                                .or_else(|| drop_item.get("name"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            let drop_key = item_id.clone().unwrap_or_else(|| name.to_string());
+                            if !drop_key.is_empty() {
+                                let current_drop = state
+                                    .raw_drops
+                                    .get(&drop_key)
+                                    .and_then(|v| v.get("qty").and_then(|q| q.as_u64()).or_else(|| v.as_u64()))
+                                    .unwrap_or(0);
+                                state.raw_drops.insert(
+                                    drop_key,
+                                    json!({
+                                        "id": item_id.as_deref().unwrap_or(""),
+                                        "name": name,
+                                        "qty": current_drop + qty
+                                    }),
+                                );
+                            }
+                            if let Some(id_str) = item_id {
+                                let current_inv = state
+                                    .inv_map
+                                    .get(&id_str)
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                state
+                                    .inv_map
+                                    .insert(id_str, serde_json::Value::from(current_inv + qty));
+                            }
+                        }
+                    }
+                    changed = true;
+                } else if k == "bossMorto" {
+                    let xp = ev
+                        .get("xp")
+                        .or_else(|| ev.get("xpTreinador"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    state.a.xp += xp;
+                    if let Some(drops) = ev.get("drops").or_else(|| ev.get("loot")).and_then(|v| v.as_array()) {
+                        for drop_item in drops {
+                            let item_id = drop_item
+                                .get("itemId")
+                                .or_else(|| drop_item.get("id"))
+                                .and_then(|v| v.as_u64())
+                                .map(|n| n.to_string());
+                            let qty = drop_item
+                                .get("qtd")
+                                .or_else(|| drop_item.get("qty"))
+                                .and_then(|v| v.as_u64())
+                                .unwrap_or(1);
+                            let name = drop_item
+                                .get("nome")
+                                .or_else(|| drop_item.get("name"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            let drop_key = item_id.clone().unwrap_or_else(|| name.to_string());
+                            if !drop_key.is_empty() {
+                                let current_drop = state
+                                    .raw_drops
+                                    .get(&drop_key)
+                                    .and_then(|v| v.get("qty").and_then(|q| q.as_u64()).or_else(|| v.as_u64()))
+                                    .unwrap_or(0);
+                                state.raw_drops.insert(
+                                    drop_key,
+                                    json!({
+                                        "id": item_id.as_deref().unwrap_or(""),
+                                        "name": name,
+                                        "qty": current_drop + qty
+                                    }),
+                                );
+                            }
+                            if let Some(id_str) = item_id {
+                                let current_inv = state
+                                    .inv_map
+                                    .get(&id_str)
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                state
+                                    .inv_map
+                                    .insert(id_str, serde_json::Value::from(current_inv + qty));
+                            }
+                        }
                     }
                     changed = true;
                 } else if k == "bola" {

@@ -4774,6 +4774,9 @@
           bonusExp: num(d.kick.bonusExp),
           bonusCatch: num(d.kick.bonusCatch),
           bonusLure: num(d.kick.bonusLure),
+          bonusTime: String(d.kick.bonusTime || d.kick.tempo || d.kick.time || d.kick.expires || '').slice(0, 30),
+          bonusQty: num(d.kick.bonusQty || d.kick.qtd || d.kick.qty || 0),
+          bonusExpiresAt: num(d.kick.bonusExpiresAt || d.kick.expiresAt || 0),
           lives: rawLives.map(item => parseKickStreamer(item, true)).filter(Boolean),
           oficiais: rawOficiais.map(item => parseKickStreamer(item)).filter(Boolean),
           offline: rawOffline.map(item => parseKickStreamer(item)).filter(Boolean)
@@ -9384,7 +9387,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
         const itm = cat[id] || cat[dd.name] || cat[String(dd.name || '').toLowerCase()] || {};
         const g = (dd.qty || 0) * (itm.npcPrice || itm.priceGold || 0);
         lootGold += g;
-        dr.push({ name: dd.name, qty: dd.qty, gold: g });
+        dr.push({ id: +id || 0, name: dd.name, qty: dd.qty, gold: g });
       }
       dr.sort((x, y) => y.gold - x.gold);
       // supply = bolas jogadas + itens de cura consumidos (ambos ao preco em gold do catalogo)
@@ -9771,19 +9774,39 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     const live = (inGame || hasData) && !isPort && !((P.meMiss || 0) >= 2 && !(P.sock && P.sock.readyState === 1));
     const tw = (P.estado && P.estado.twitch) || (window.estado && (window.estado.eu ? window.estado.eu.twitch : window.estado.twitch)) || null;
     let kick = (P.estado && (P.estado.kick || (P.estado.eu && P.estado.eu.kick))) || (window.estado && (window.estado.eu ? window.estado.eu.kick : window.estado.kick)) || null;
-    if (!kick && typeof document !== 'undefined') {
+    if (typeof document !== 'undefined') {
       const elConta = document.querySelector('.kk-conta');
+      const kickBtn = document.querySelector('.tr-ativo.kick, button.kk-conectar, [data-modal="kick"], button.kick, .kick-ativo');
+      let domLogin = '';
       if (elConta) {
         const m = (elConta.textContent || '').match(/@([a-zA-Z0-9_-]+)/);
-        kick = { vinculado: true, login: m ? m[1] : '' };
-      } else {
-        const kickBtn = document.querySelector('.tr-ativo.kick');
-        if (kickBtn && !kickBtn.classList.contains('kk-conectar')) {
-          kick = { vinculado: true, login: '' };
+        if (m) domLogin = m[1];
+      }
+      let domBonusTime = '', domBonusQty = 0, domBonusExp = 0, domBonusCatch = 0, domBonusLure = 0;
+      if (kickBtn && !kickBtn.classList.contains('kk-conectar')) {
+        const fullTxt = ((kickBtn.getAttribute('title') || '') + ' ' + (kickBtn.getAttribute('data-tooltip') || '') + ' ' + (kickBtn.textContent || '')).trim();
+        const tM = fullTxt.match(/(?:(\d+)\s*h(?:r|rs)?(?:\s*(\d+)\s*(?:m|min)?)?)/i) || fullTxt.match(/(\d+)\s*(?:m|min)/i) || fullTxt.match(/(\d+)\s*(?:s|seg)/i);
+        if (tM) domBonusTime = tM[0].trim();
+        const qM = fullTxt.match(/(\d+)\s*x\b|\bx\s*(\d+)/i);
+        if (qM) domBonusQty = parseInt(qM[1] || qM[2], 10) || 1;
+        if (/exp|xp/i.test(fullTxt)) domBonusExp = 1;
+        if (/catch/i.test(fullTxt)) domBonusCatch = 1;
+        if (/lure/i.test(fullTxt)) domBonusLure = 1;
+      }
+      if (!kick) {
+        if (domLogin || (kickBtn && !kickBtn.classList.contains('kk-conectar'))) {
+          kick = { vinculado: true, login: domLogin };
         }
       }
+      if (kick) {
+        if (!kick.bonusTime && domBonusTime) kick.bonusTime = domBonusTime;
+        if (!kick.bonusQty && domBonusQty) kick.bonusQty = domBonusQty;
+        if (!kick.bonusExp && domBonusExp) kick.bonusExp = domBonusExp;
+        if (!kick.bonusCatch && domBonusCatch) kick.bonusCatch = domBonusCatch;
+        if (!kick.bonusLure && domBonusLure) kick.bonusLure = domBonusLure;
+      }
     }
-    return { ok:true, cid: ch.id||P.cid||(P.estado&&P.estado.id)||'', name: cName, level: cLevel, gold: cGold, diamonds: cDiamonds, vip: !!ch.isVip, clan: ch.clan||(P.estado&&P.estado.guild&&(P.estado.guild.nome||P.estado.guild.name))||null, clanRank: ch.clanRank||0, shinyEnc: P.shinyEnc||0, usedList: P.usedList||[], catchLog: P.catchLog||[], shinyLog: P.shinyLog||[], chatShares: P.chatShares||[], balls: sBalls, equippedBall, activeId: actId || null, potions: sPot, revives: sRev, invMap, ballMap,
+    return { ok:true, cid: ch.id||P.cid||(P.estado&&P.estado.id)||'', name: cName, level: cLevel, gold: cGold, diamonds: cDiamonds, vip: !!ch.isVip, clan: ch.clan||(P.estado&&P.estado.guild&&(P.estado.guild.nome||P.estado.guild.name))||null, clanRank: ch.clanRank||0, shinyEnc: P.shinyEnc||0, usedList: P.usedList||[], catchLog: P.catchLog||[], shinyLog: P.shinyLog||[], chatShares: P.chatShares||[], balls: sBalls, equippedBall, activeId: actId || null, potions: sPot, revives: sRev, invMap, ballMap, rawDrops: (S && S.drops) ? S.drops : {},
       twitch: tw,
       kick: kick,
       prof: ch.profession||'', profRank: ch.professionRank||0, catches: ch.catches||0, hunt, gifts: mail.gifts||0,

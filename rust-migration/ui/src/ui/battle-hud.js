@@ -108,12 +108,249 @@
     } catch {}
   }
 
+  const IMPORTANT_DROPS = [
+    {
+      key: 'boss_token',
+      name: 'Boss Token',
+      title: 'Bronze Boss Token',
+      ids: [70000],
+      names: ['boss token', 'bronze boss token', 'token boss'],
+      icon: 'src/ui/assets/markitems/boss_token.png',
+      remoteFallback: 'https://pokeidle.io/assets/site/assets/items/bronze_boss_token.png'
+    },
+    {
+      key: 'frag_chave',
+      name: 'Frag. Chave',
+      title: 'Fragmento de Chave',
+      ids: [70011],
+      names: ['fragmento de chave', 'frag de chave', 'key fragment', 'fragmento chave'],
+      icon: 'src/ui/assets/markitems/frag_chave.png',
+      remoteFallback: 'https://pokeidle.io/img/itens/fragmento-chave.png'
+    },
+    {
+      key: 'frag_bike',
+      name: 'Frag. Bike',
+      title: 'Fragmento de Bicicleta',
+      ids: [70013],
+      names: ['fragmento de bicicleta', 'frag de bike', 'bicycle fragment', 'fragmento bicicleta', 'bike fragment'],
+      icon: 'src/ui/assets/markitems/frag_bike.png',
+      remoteFallback: 'https://pokeidle.io/img/itens/fragmento-bicicleta.png'
+    },
+    {
+      key: 'shiny_stone',
+      name: 'Shiny Stone',
+      title: 'Shiny Stone / Fragmento',
+      ids: [70012, 60598, 60607, 60609, 60612, 60613, 60614, 60617, 60618, 60619, 60620, 60624, 60625],
+      names: ['shiny stone', 'fragmento de shiny stone', 'pedra shiny', 'shiny stone fragment'],
+      icon: 'src/ui/assets/markitems/shiny_stone.png',
+      remoteFallback: 'https://pokeidle.io/img/itens/shiny-stone.png'
+    }
+  ];
+
+  const dropBaselines = new Map();
+
+  function resolveItemTelemetry(def, state, panelIndex) {
+    if (!state) return { initial: 0, runDrops: 0, current: 0 };
+
+    const invMap = state.invMap || {};
+    const rawDrops = state.rawDrops || {};
+    const dropsList = Array.isArray(state.drops) ? state.drops : (Array.isArray(state.a?.drops) ? state.a.drops : []);
+
+    // 1. Total atual na bag
+    let currentInBag = 0;
+    let foundInInv = false;
+    for (const id of def.ids) {
+      const v = invMap[id] != null ? invMap[id] : invMap[String(id)];
+      if (v != null) {
+        currentInBag += Math.max(0, +v || 0);
+        foundInInv = true;
+      }
+    }
+
+    if (!foundInInv && Array.isArray(state.bag)) {
+      for (const group of state.bag) {
+        if (!group || !Array.isArray(group.items)) continue;
+        for (const it of group.items) {
+          const itId = +(String(it.id || '').replace(/^b/, '')) || 0;
+          if (def.ids.includes(itId) || def.names.some(n => String(it.name || '').toLowerCase().includes(n))) {
+            currentInBag += Math.max(0, +it.qty || 0);
+            foundInInv = true;
+          }
+        }
+      }
+    }
+
+    // 2. Coletados na run atual
+    let runDrops = 0;
+    for (const id of def.ids) {
+      const entry = rawDrops[id] || rawDrops[String(id)];
+      if (entry != null) {
+        runDrops += typeof entry === 'object' ? (+entry.qty || 0) : (+entry || 0);
+      }
+    }
+    for (const k in rawDrops) {
+      if (def.ids.map(String).includes(String(k))) continue;
+      const entry = rawDrops[k];
+      const entryName = (typeof entry === 'object' && entry.name) ? String(entry.name).toLowerCase() : String(k).toLowerCase();
+      if (def.names.some(n => entryName.includes(n))) {
+        runDrops += typeof entry === 'object' ? (+entry.qty || 0) : (+entry || 0);
+      }
+    }
+    if (runDrops === 0 && dropsList.length > 0) {
+      for (const d of dropsList) {
+        if (!d) continue;
+        const dId = +d.id || 0;
+        const dName = String(d.name || d.n || '').toLowerCase();
+        if ((dId && def.ids.includes(dId)) || def.names.some(n => dName.includes(n))) {
+          runDrops += (+d.qty || +d.q || 0);
+        }
+      }
+    }
+
+    // 3. Baseline da sessão
+    const sessStart = state.sessStart || (state.a?.seconds ? Date.now() - state.a.seconds * 1000 : 0);
+    let baselineRecord = dropBaselines.get(panelIndex);
+    if (!baselineRecord || (sessStart && Math.abs(baselineRecord.sessStart - sessStart) > 5000)) {
+      baselineRecord = { sessStart, base: {} };
+      dropBaselines.set(panelIndex, baselineRecord);
+    }
+
+    if (baselineRecord.base[def.key] == null) {
+      const calculatedBase = foundInInv ? Math.max(0, currentInBag - runDrops) : 0;
+      baselineRecord.base[def.key] = calculatedBase;
+    } else if (foundInInv && baselineRecord.base[def.key] === 0 && currentInBag > runDrops) {
+      baselineRecord.base[def.key] = Math.max(0, currentInBag - runDrops);
+    }
+
+    const initial = baselineRecord.base[def.key] || 0;
+    const finalCurrent = foundInInv ? currentInBag : (initial + runDrops);
+
+    return { initial, runDrops, current: finalCurrent };
+  }
+
+  function formatKickBonus(telemetry, account) {
+    const redemption = account?.activeRedemption || account?.redemption;
+    let redemptionActive = false;
+    let redemptionKey = '';
+    let redemptionTimeLeft = '';
+
+    const isEligible = redemption && (
+      redemption === account?.activeRedemption ||
+      redemption.status === 'confirmed' ||
+      redemption.status === 'success' ||
+      redemption.status === 'pending' ||
+      Boolean(redemption.reward && !redemption.status)
+    );
+
+    if (isEligible) {
+      const now = Date.now();
+      const expiresAt = Number(redemption.expiresAt || redemption.expireAt) || 0;
+      const at = Number(redemption.at || redemption.timestamp) || 0;
+      const qty = Math.max(1, Number(redemption.qty || redemption.bonusQty || 1));
+      const durationMs = ((Number(redemption.duration) || 3600) * qty) * 1000;
+
+      if (expiresAt > now) {
+        redemptionActive = true;
+        const diffMs = expiresAt - now;
+        const totalMins = Math.max(1, Math.floor(diffMs / 60000));
+        const hours = Math.floor(totalMins / 60);
+        const remMins = totalMins % 60;
+        redemptionTimeLeft = hours > 0
+          ? `${hours}h ${remMins < 10 ? '0' : ''}${remMins}m`
+          : `${totalMins}m`;
+        redemptionKey = String(redemption.reward?.key || redemption.reward?.id || 'exp').toLowerCase();
+      } else if (at > 0 && now >= at) {
+        const elapsed = now - at;
+        if (elapsed < durationMs) {
+          redemptionActive = true;
+          const remainingSecs = Math.max(1, Math.floor((durationMs - elapsed) / 1000));
+          const mins = Math.floor(remainingSecs / 60);
+          const hours = Math.floor(mins / 60);
+          const remMins = mins % 60;
+          redemptionTimeLeft = hours > 0
+            ? `${hours}h ${remMins < 10 ? '0' : ''}${remMins}m`
+            : `${mins}m`;
+          redemptionKey = String(redemption.reward?.key || redemption.reward?.id || 'exp').toLowerCase();
+        }
+      } else if (redemption.status === 'pending') {
+        redemptionActive = true;
+        redemptionTimeLeft = 'confirmando...';
+        redemptionKey = String(redemption.reward?.key || redemption.reward?.id || 'exp').toLowerCase();
+      }
+    }
+
+    const telExp = Number(telemetry?.bonusExp) || 0;
+    const telCatch = Number(telemetry?.bonusCatch) || 0;
+    const telLure = Number(telemetry?.bonusLure) || 0;
+    const telQty = Math.max(1, Number(telemetry?.bonusQty) || 1);
+    let telTime = String(telemetry?.bonusTime || telemetry?.tempo || telemetry?.time || '').trim();
+
+    if (telTime && /^\d+\s*m(?:in)?$/i.test(telTime)) {
+      const mNum = parseInt(telTime, 10);
+      if (mNum >= 60) {
+        const h = Math.floor(mNum / 60);
+        const rem = mNum % 60;
+        telTime = `${h}h ${rem < 10 ? '0' : ''}${rem}m`;
+      }
+    }
+
+    const types = [];
+
+    if (telExp > 0 || (redemptionActive && redemptionKey.includes('exp'))) {
+      types.push('EXP +15%');
+    }
+
+    if (telCatch > 0 || (redemptionActive && redemptionKey.includes('catch'))) {
+      types.push('Catch +15%');
+    }
+
+    if (telLure > 0 || (redemptionActive && redemptionKey.includes('lure'))) {
+      types.push('Lure +15%');
+    }
+
+    if (types.length === 0) {
+      return { text: 'Sem bônus', active: false, details: '' };
+    }
+
+    let timeStr = redemptionTimeLeft || telTime;
+
+    const telExpMs = Number(telemetry?.bonusExpiresAt || (telExp > 1000000000 ? telExp : 0));
+    if (!timeStr && telExpMs > 0) {
+      const expireMs = telExpMs > 1e11 ? telExpMs : telExpMs * 1000;
+      const diff = expireMs - Date.now();
+      if (diff > 0) {
+        const totalMins = Math.max(1, Math.floor(diff / 60000));
+        const hours = Math.floor(totalMins / 60);
+        const remM = totalMins % 60;
+        timeStr = hours > 0 ? `${hours}h ${remM < 10 ? '0' : ''}${remM}m` : `${totalMins}m`;
+      }
+    }
+
+    if (telQty > 1 && !redemptionTimeLeft && timeStr) {
+      const singleMatch = timeStr.match(/^1\s*h(?:r|rs)?$/i) || timeStr.match(/^60\s*m(?:in)?$/i);
+      if (singleMatch) {
+        timeStr = `${telQty}h 00m`;
+      }
+    }
+
+    // O buff acumula tempo e nunca o multiplicador percentual (+15% permanece +15%)
+    const label = types.join(' · ');
+    const fullText = timeStr ? `${label} · ${timeStr}` : label;
+    let details = '';
+    if (redemptionActive && redemption?.channel) {
+      details = `Bônus Kick: ${label}\nCanal: @${redemption.channel}\nTempo restante: ${timeStr || 'Ativo'}`;
+    }
+
+    return { text: fullText, active: true, details };
+  }
+
   const PioBattleHud = {
     updateSocial(panel, i) {
       const box = panel.querySelector('.battle-slot-hud');
       if (!box) return;
       const game = gameSocial.get(i) || {};
       const labels = { authenticated: 'Sessão confirmada', blocked: 'Consulta bloqueada', rate_limited: 'Aguarde', account_mismatch: 'Outra conta', connected: 'Conectada', connecting: 'Conectando', waiting_live: 'Sem live', error: 'Erro', login_required: 'Entrar', disconnected: 'Desconectada' };
+      const account = social.points?.accounts?.[i];
       for (const platform of ['twitch', 'kick']) {
         const row = box.querySelector('.bsh-social-' + platform);
         const status = social[platform]?.accounts?.[i]?.status;
@@ -121,14 +358,27 @@
         const connected = status === 'connected' || status === 'authenticated';
         row.classList.toggle('is-connected', connected);
         box.querySelector('.bsh-' + platform + '-status').textContent = labels[status] || (platform === 'twitch' && telemetry?.assistindo ? 'Assistindo' : telemetry?.login ? 'Vinculada' : 'Aguardando');
-        let bonus = 'Bônus —';
-        if (telemetry) {
-          if (platform === 'twitch') bonus = telemetry.assistindo && telemetry.pctAtual > 0 ? '+' + telemetry.pctAtual + '% XP' : 'Sem bônus';
-          else bonus = [telemetry.bonusExp ? 'EXP +15%' : '', telemetry.bonusCatch ? 'Catch +15%' : '', telemetry.bonusLure ? 'Lure +15%' : ''].filter(Boolean).join(' · ') || 'Sem bônus';
+        const bonusEl = box.querySelector('.bsh-' + platform + '-bonus');
+        if (platform === 'twitch') {
+          let twBonus = 'Bônus —';
+          if (telemetry) {
+            twBonus = telemetry.assistindo && telemetry.pctAtual > 0 ? '+' + telemetry.pctAtual + '% XP' : 'Sem bônus';
+          }
+          bonusEl.textContent = twBonus;
+          bonusEl.classList.toggle('is-bonus-active', twBonus.startsWith('+'));
+        } else {
+          let kickBonusText = 'Bônus —';
+          if (telemetry || account?.activeRedemption || account?.redemption) {
+            const kb = formatKickBonus(telemetry, account);
+            kickBonusText = kb.text;
+            bonusEl.classList.toggle('is-bonus-active', kb.active);
+            if (kb.details) bonusEl.title = kb.details;
+          } else {
+            bonusEl.classList.remove('is-bonus-active');
+          }
+          bonusEl.textContent = kickBonusText;
         }
-        box.querySelector('.bsh-' + platform + '-bonus').textContent = bonus;
       }
-      const account = social.points?.accounts?.[i];
       const balances = Object.entries(account?.balances || {});
       const verified = balances.filter(([, b]) => b.status === 'verified' && Number.isSafeInteger(b.points));
       const total = verified.reduce((n, [, b]) => n + b.points, 0);
@@ -430,6 +680,17 @@
             <span class="bsh-stat-value bsh-val-shinies">0</span>
           </div>
         </div>
+        <div class="bsh-important-drops" aria-label="Drops Importantes">
+          ${IMPORTANT_DROPS.map(item => `
+            <div class="bsh-drop-card bsh-drop-${item.key}" data-key="${item.key}" title="${item.title}">
+              <span class="bsh-drop-badge" style="display: none;">+0</span>
+              <div class="bsh-drop-icon-wrap">
+                <img class="bsh-drop-icon" src="${item.icon}" alt="${item.name}" onerror="this.src='${item.remoteFallback}'">
+              </div>
+              <span class="bsh-drop-qty">x0</span>
+            </div>
+          `).join('')}
+        </div>
         <button type="button" class="bsh-open-game-btn">
           Abrir jogo
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
@@ -625,8 +886,39 @@
         const shiniesFormatted = fmtNumber(shiniesCount);
         if (shiniesValEl.textContent !== shiniesFormatted) shiniesValEl.textContent = shiniesFormatted;
       }
+
+      // 4. Drops Importantes (Boss Token, Frag Chave, Frag Bike, Shiny Stone)
+      for (const item of IMPORTANT_DROPS) {
+        const card = hud.querySelector(`.bsh-drop-${item.key}`);
+        if (!card) continue;
+        const { initial, runDrops, current } = resolveItemTelemetry(item, state, i);
+
+        const badgeEl = card.querySelector('.bsh-drop-badge');
+        if (badgeEl) {
+          if (runDrops > 0) {
+            const badgeText = `+${runDrops}`;
+            if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+            badgeEl.style.display = 'inline-flex';
+          } else {
+            badgeEl.style.display = 'none';
+          }
+        }
+
+        const qtyEl = card.querySelector('.bsh-drop-qty');
+        if (qtyEl) {
+          const qtyText = `x${initial}`;
+          if (qtyEl.textContent !== qtyText) qtyEl.textContent = qtyText;
+        }
+
+        const tip = `${item.title || item.name}\nInício: ${initial}\nNa run: +${runDrops}\nTotal na bag: ${current}`;
+        if (card.title !== tip) card.title = tip;
+      }
     }
   };
+
+  PioBattleHud.IMPORTANT_DROPS = IMPORTANT_DROPS;
+  PioBattleHud.resolveItemTelemetry = resolveItemTelemetry;
+  PioBattleHud.formatKickBonus = formatKickBonus;
 
   window.PioBattleHud = PioBattleHud;
   for (const [key, getter, event] of [
@@ -639,7 +931,11 @@
     if (typeof window.pokeAPI?.[getter] === 'function') Promise.resolve(window.pokeAPI[getter]()).then(receive).catch(() => {});
   }
 
-
+  if (typeof setInterval !== 'undefined') {
+    setInterval(() => {
+      refreshSocial();
+    }, 10000);
+  }
 
   if (window.__TAURI__ && window.pokeAPI?.onBlasterStatus) {
     window.pokeAPI.onBlasterStatus(({index, status, error}) => {

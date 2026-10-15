@@ -66,6 +66,7 @@ test('PokeIdleHeadlessClient - handshake, telemetry, combat and lifecycle', asyn
       gold: 15000,
       huntSlug: 'charizard_valley',
       balls: { 1: 50, 2: 30 },
+      items: { 70000: 3, 70011: 0 },
       pokemons: [
         { id: 1, speciesId: 7, nome: 'Squirtle', level: 26, shiny: false, slot: 0 },
         { id: 2, speciesId: 25, nome: 'Pikachu', level: 30, shiny: true, slot: 1 }
@@ -77,6 +78,7 @@ test('PokeIdleHeadlessClient - handshake, telemetry, combat and lifecycle', asyn
   assert.equal(latestUpdate.gold, 15000);
   assert.equal(latestUpdate.hunt, 'charizard_valley');
   assert.equal(latestUpdate.balls, 80);
+  assert.equal(latestUpdate.invMap[70000], 3);
   assert.equal(latestUpdate.team.length, 2);
 
   // 2. Simula 'campo.init'
@@ -86,13 +88,13 @@ test('PokeIdleHeadlessClient - handshake, telemetry, combat and lifecycle', asyn
   });
   assert.equal(latestUpdate.hunt, 'seafoam_islands');
 
-  // 3. Simula evento de batalha com shiny spawn, kill e captura
+  // 3. Simula evento de batalha com shiny spawn, kill, drops e captura
   client.ws.simulateMessage({
     t: 'batalha',
     ev: [
       { k: 'spawn', shiny: true, nome: 'Articuno' },
       { k: 'bola', ballId: 3 },
-      { k: 'morte', quem: 'selvagem', xp: 500, shiny: true },
+      { k: 'morte', quem: 'selvagem', xp: 500, shiny: true, drops: [{ itemId: 70000, nome: 'Bronze Boss Token', qtd: 2 }] },
       { k: 'capturado', pokemon: { shiny: true, nome: 'Articuno', speciesId: 144 } }
     ]
   });
@@ -103,6 +105,8 @@ test('PokeIdleHeadlessClient - handshake, telemetry, combat and lifecycle', asyn
   assert.equal(latestUpdate.a.balls, 3);
   assert.equal(latestUpdate.a.captures, 3);
   assert.equal(latestUpdate.balls, 79);
+  assert.equal(latestUpdate.invMap[70000], 5);
+  assert.equal(latestUpdate.rawDrops[70000].qty, 2);
 
   // 4. Teste de comandos
   client.throwBall(2);

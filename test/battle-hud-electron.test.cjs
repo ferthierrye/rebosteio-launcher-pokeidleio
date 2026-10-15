@@ -74,6 +74,16 @@ app.whenReady().then(async () => {
       balls: 2063,
       equippedBall: { name: 'Pokeball', infinite: false },
       team: [{ sid: 7, name: 'Squirtle', level: 36, ld: true, shiny: false }],
+      invMap: {
+        70000: 5,
+        70011: 0,
+        70013: 10,
+        70012: 1
+      },
+      rawDrops: {
+        70000: { id: 70000, name: 'Bronze Boss Token', qty: 2 },
+        70012: { id: 70012, name: 'Shiny Stone Fragment', qty: 1 }
+      },
       a: { seconds: 125, xph: 85000, shinyCap: 1, shinyFound: 1 }
     };
     window.PioBattleHud.update(document.querySelectorAll(".panel")[0], 0, fakeState);
@@ -87,6 +97,19 @@ app.whenReady().then(async () => {
 
   const timeVal = await read('document.querySelectorAll(".panel .bsh-val-time")[0].textContent');
   assert.equal(timeVal, '0h 02m 05s', 'Hunt time must be formatted properly');
+
+  // Verify Important Drops widget
+  const bossTokenQty = await read('document.querySelectorAll(".panel .bsh-drop-boss_token .bsh-drop-qty")[0].textContent');
+  assert.equal(bossTokenQty, 'x3', 'Boss Token initial count must be x3');
+
+  const bossTokenBadge = await read('document.querySelectorAll(".panel .bsh-drop-boss_token .bsh-drop-badge")[0].textContent');
+  assert.equal(bossTokenBadge, '+2', 'Boss Token badge must show +2');
+
+  const fragChaveQty = await read('document.querySelectorAll(".panel .bsh-drop-frag_chave .bsh-drop-qty")[0].textContent');
+  assert.equal(fragChaveQty, 'x0', 'Frag Chave initial count must be x0');
+
+  const fragChaveBadgeDisplay = await read('getComputedStyle(document.querySelectorAll(".panel .bsh-drop-frag_chave .bsh-drop-badge")[0]).display');
+  assert.equal(fragChaveBadgeDisplay, 'none', 'Frag Chave badge must be hidden');
 
   // 4. Capture screenshot of the HUD rendered inside the panel
   const previewPath = path.join(root, 'scratch', 'battle-hud-preview.png');

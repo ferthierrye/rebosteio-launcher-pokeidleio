@@ -46,17 +46,39 @@ test('Battle Slot HUD - module logic, rendering, and lifecycle', () => {
     set innerHTML(html) {
       this._innerHTML = html;
       this.children = [];
-      const matches = html.matchAll(/<([a-zA-Z0-9-]+)([^>]*)>/g);
-      for (const m of matches) {
-        const tag = m[1];
-        const attrs = m[2];
-        const el = new MockElement(tag);
-        const classMatch = attrs.match(/class=["']([^"']+)["']/);
-        if (classMatch) {
-          el.className = classMatch[1];
-          classMatch[1].split(/\s+/).filter(Boolean).forEach(c => el.classList.add(c));
+      const stack = [this];
+      const re = /<\/?([a-zA-Z0-9-]+)([^>]*)>/g;
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        const full = m[0];
+        const tag = m[1].toLowerCase();
+        const attrs = m[2] || '';
+        const isClosing = full.startsWith('</');
+        const isSelfClosing = full.endsWith('/>') || ['img', 'br', 'hr', 'input', 'path'].includes(tag);
+
+        if (isClosing) {
+          if (stack.length > 1 && stack[stack.length - 1].tagName.toLowerCase() === tag) {
+            stack.pop();
+          }
+        } else {
+          const el = new MockElement(tag);
+          const classMatch = attrs.match(/class=["']([^"']+)["']/);
+          if (classMatch) {
+            el.className = classMatch[1];
+          }
+          const idMatch = attrs.match(/id=["']([^"']+)["']/);
+          if (idMatch) {
+            el.id = idMatch[1];
+          }
+          const titleMatch = attrs.match(/title=["']([^"']+)["']/);
+          if (titleMatch) {
+            el.setAttribute('title', titleMatch[1]);
+          }
+          stack[stack.length - 1].children.push(el);
+          if (!isSelfClosing) {
+            stack.push(el);
+          }
         }
-        this.children.push(el);
       }
     }
     get innerHTML() { return this._innerHTML || ''; }
@@ -152,6 +174,16 @@ test('Battle Slot HUD - module logic, rendering, and lifecycle', () => {
     team: [
       { sid: 7, name: 'Squirtle', level: 25, ld: true, shiny: false }
     ],
+    invMap: {
+      70000: 5,
+      70011: 0,
+      70013: 10,
+      70012: 1
+    },
+    rawDrops: {
+      70000: { id: 70000, name: 'Bronze Boss Token', qty: 2 },
+      70012: { id: 70012, name: 'Shiny Stone Fragment', qty: 1 }
+    },
     a: {
       seconds: 6,
       xph: 45000,
@@ -176,6 +208,32 @@ test('Battle Slot HUD - module logic, rendering, and lifecycle', () => {
 
   const huntSprite = hudEl.querySelector('.bsh-hunt-sprite');
   assert.ok(huntSprite.getAttribute('data-src').includes('37.gif'), 'Hunt sprite must resolve to Vulpix gif');
+
+  // Verify Important Drops widget
+  const dropsContainer = hudEl.querySelector('.bsh-important-drops');
+  assert.ok(dropsContainer, 'Important drops container must be mounted in HUD');
+
+  const bossTokenCard = hudEl.querySelector('.bsh-drop-boss_token');
+  assert.ok(bossTokenCard, 'Boss Token card must exist');
+  assert.equal(bossTokenCard.querySelector('.bsh-drop-qty').textContent, 'x3', 'Boss Token initial count must be 5 - 2 = 3');
+  assert.equal(bossTokenCard.querySelector('.bsh-drop-badge').textContent, '+2', 'Boss Token badge must show +2 drops');
+  assert.equal(bossTokenCard.querySelector('.bsh-drop-badge').style.display, 'inline-flex', 'Badge must be visible when drops > 0');
+
+  const fragChaveCard = hudEl.querySelector('.bsh-drop-frag_chave');
+  assert.ok(fragChaveCard, 'Key fragment card must exist');
+  assert.equal(fragChaveCard.querySelector('.bsh-drop-qty').textContent, 'x0', 'Key fragment count must be x0');
+  assert.equal(fragChaveCard.querySelector('.bsh-drop-badge').style.display, 'none', 'Badge must be hidden when 0 drops');
+
+  const fragBikeCard = hudEl.querySelector('.bsh-drop-frag_bike');
+  assert.ok(fragBikeCard, 'Bike fragment card must exist');
+  assert.equal(fragBikeCard.querySelector('.bsh-drop-qty').textContent, 'x10', 'Bike fragment count must be x10');
+  assert.equal(fragBikeCard.querySelector('.bsh-drop-badge').style.display, 'none', 'Badge must be hidden when 0 drops');
+
+  const shinyStoneCard = hudEl.querySelector('.bsh-drop-shiny_stone');
+  assert.ok(shinyStoneCard, 'Shiny stone card must exist');
+  assert.equal(shinyStoneCard.querySelector('.bsh-drop-qty').textContent, 'x0', 'Shiny stone initial count must be 1 - 1 = 0');
+  assert.equal(shinyStoneCard.querySelector('.bsh-drop-badge').textContent, '+1', 'Shiny stone badge must show +1 drops');
+  assert.equal(shinyStoneCard.querySelector('.bsh-drop-badge').style.display, 'inline-flex', 'Badge must be visible for shiny stone drop');
 
   // Test 4: Pause animation toggle
   const pauseBtn = hudEl.querySelector('.bsh-pause-btn');
@@ -213,4 +271,67 @@ test('Battle Slot HUD - module logic, rendering, and lifecycle', () => {
   PioBattleHud.setBlasterActive(0, false);
   assert.equal(PioBattleHud.isBlasterActive(0), false);
   assert.equal(panel.classList.contains('is-blaster-active'), false);
+
+  // Test 7: Kick Bonus display and countdown
+  const kickBonusEl = hudEl.querySelector('.bsh-kick-bonus');
+  assert.ok(kickBonusEl, 'Kick bonus element must exist');
+
+  const stateWithKick = {
+    ...fakeState,
+    kick: {
+      bonusExp: 1,
+      bonusQty: 2,
+      bonusTime: '48m'
+    }
+  };
+  PioBattleHud.update(panel, 0, stateWithKick);
+  // O buff não mostra "2x" no nome porque a porcentagem não stacka (+15% permanece +15%)
+  assert.equal(kickBonusEl.textContent, 'EXP +15% · 48m');
+  assert.equal(kickBonusEl.classList.contains('is-bonus-active'), true);
+
+  // Test 8: formatKickBonus unit scenarios
+  assert.equal(typeof PioBattleHud.formatKickBonus, 'function', 'formatKickBonus must be exposed');
+
+  // No bonus
+  const emptyBonus = PioBattleHud.formatKickBonus(null, null);
+  assert.equal(emptyBonus.text, 'Sem bônus');
+  assert.equal(emptyBonus.active, false);
+
+  // Kick redemption active via account (55m restantes)
+  const accountWithRedeem = {
+    activeRedemption: {
+      channel: 'souonailo',
+      reward: { key: 'exp', title: '+15% EXP' },
+      at: Date.now() - 300000, // 5 min ago
+      duration: 3600
+    }
+  };
+  const redeemBonus = PioBattleHud.formatKickBonus(null, accountWithRedeem);
+  assert.equal(redeemBonus.active, true);
+  assert.ok(redeemBonus.text.startsWith('EXP +15% · 5'), `Expected ~55m countdown, got: ${redeemBonus.text}`);
+  assert.ok(redeemBonus.details.includes('@souonailo'));
+
+  // Acúmulo de tempo: 2x 15% (2 horas)
+  const stacked2xBonus = PioBattleHud.formatKickBonus({ bonusExp: 1, bonusQty: 2, bonusTime: '1h' }, null);
+  assert.equal(stacked2xBonus.active, true);
+  assert.equal(stacked2xBonus.text, 'EXP +15% · 2h 00m');
+
+  // Acúmulo de tempo: tempo restante anterior + 1 hora via expiresAt (ex: 30m restantes + 1h = 1h 30m)
+  const stackedTimeAccount = {
+    activeRedemption: {
+      channel: 'souonailo',
+      reward: { key: 'exp', title: '+15% EXP' },
+      expiresAt: Date.now() + 5400000 // 90 min (1h 30m)
+    }
+  };
+  const stackedTimeBonus = PioBattleHud.formatKickBonus(null, stackedTimeAccount);
+  assert.equal(stackedTimeBonus.active, true);
+  assert.equal(stackedTimeBonus.text, 'EXP +15% · 1h 30m');
+
+  // Catch bonus com tempo restante 1h 05m
+  const catchBonus = PioBattleHud.formatKickBonus({ bonusCatch: 1, bonusQty: 3, bonusTime: '1h 05m' }, null);
+  assert.equal(catchBonus.active, true);
+  assert.equal(catchBonus.text, 'Catch +15% · 1h 05m');
 });
+
+

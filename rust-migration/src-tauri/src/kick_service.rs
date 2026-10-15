@@ -71,9 +71,29 @@ pub struct KickServiceManager {
 }
 impl KickServiceManager {
     pub fn new() -> Self {
+        let mut initial_accounts: Vec<Value> = (0..4).map(|_| empty()).collect();
+        if let Ok(journal) = crate::social_store::try_load("kick-redemptions") {
+            let current_time = now();
+            for i in 0..4 {
+                if let Some(prev) = journal.get("accounts").and_then(|a| a.get(i)) {
+                    let prev_exp = prev["expiresAt"].as_u64().unwrap_or_else(|| {
+                        if prev["status"] == "confirmed" {
+                            prev["at"].as_u64().unwrap_or(0) + 3_600_000
+                        } else {
+                            0
+                        }
+                    });
+                    if prev_exp > current_time {
+                        let mut active = prev.clone();
+                        active["expiresAt"] = json!(prev_exp);
+                        initial_accounts[i]["activeRedemption"] = active;
+                    }
+                }
+            }
+        }
         Self {
             config: RwLock::new(json!({"masterEnabled":false,"accounts":[]})),
-            accounts: RwLock::new((0..4).map(|_| empty()).collect()),
+            accounts: RwLock::new(initial_accounts),
             channels: RwLock::new(vec![Vec::new();4]),
             lives: RwLock::new(vec![Vec::new();4]),
             revision: AtomicU64::new(0),
@@ -466,17 +486,29 @@ impl KickServiceManager {
     }
     async fn auto_redeem(&self,view:&tauri::Webview,token:&str,index:usize,generation:u64,config:&Value,state:&mut Value) {
         state["redemption"]=json!({"status":"off","message":"Resgate automático desligado."});
+        let mut journal=match crate::social_store::try_load("kick-redemptions") {Ok(v)=>v,Err(_)=>{
+            state["redemption"]=json!({"status":"paused","message":"Não foi possível ler o registro de resgates. Automático pausado."});return;
+        }};
+        while journal["accounts"].as_array().map(|a|a.len()).unwrap_or(0)<4 {journal["accounts"].as_array_mut().unwrap().push(json!({}));}
+        let previous=&journal["accounts"][index];
+        let prev_exp = previous["expiresAt"].as_u64().unwrap_or_else(|| {
+            if previous["status"] == "confirmed" {
+                previous["at"].as_u64().unwrap_or(0) + 3_600_000
+            } else {
+                0
+            }
+        });
+        if prev_exp > now() {
+            let mut active = previous.clone();
+            active["expiresAt"] = json!(prev_exp);
+            state["activeRedemption"] = active;
+        }
         if config["autoClaim"]!=true || config["autoClaimProtocol"]!=1 || !enabled(config,index) {return;}
         let linked=crate::social_store::slug(config["accounts"][index]["linkedUsername"].as_str().unwrap_or(""));
         if config["accounts"][index]["gameLinked"]!=true || linked.as_deref()!=state["username"].as_str() {
             state["redemption"]=json!({"status":"waiting_link","message":"Confirme o vínculo desta mesma conta Kick no jogo para resgatar."});return;
         }
         let _serial=self.redemption_lock.lock().await;
-        let mut journal=match crate::social_store::try_load("kick-redemptions") {Ok(v)=>v,Err(_)=>{
-            state["redemption"]=json!({"status":"paused","message":"Não foi possível ler o registro de resgates. Automático pausado."});return;
-        }};
-        while journal["accounts"].as_array().map(|a|a.len()).unwrap_or(0)<4 {journal["accounts"].as_array_mut().unwrap().push(json!({}));}
-        let previous=&journal["accounts"][index];
         if previous["status"]=="pending" {
             state["redemption"]=json!({"status":"paused","message":format!("Resgate em @{} sem confirmação. Automático pausado para evitar duplicação; confira o histórico na Kick.",previous["channel"].as_str().unwrap_or(""))});return;
         }
@@ -507,6 +539,14 @@ impl KickServiceManager {
                         state["balances"][&slug]["points"]=json!(after);state["balances"][&slug]["checkedAt"]=json!(now());
                         if before.checked_sub(reward["cost"].as_u64().unwrap())==Some(after) {
                             receipt["status"]=json!("confirmed");receipt["message"]=json!(format!("Resgate confirmado na Kick: {} em @{slug}. O jogo confirma a aplicação do buff.",reward["key"].as_str().unwrap()));
+                            let current_now = now();
+                            let new_expires_at = if prev_exp > current_now {
+                                prev_exp + 3_600_000
+                            } else {
+                                current_now + 3_600_000
+                            };
+                            receipt["expiresAt"] = json!(new_expires_at);
+                            state["activeRedemption"]=receipt.clone();
                         }
                     }
                 }
