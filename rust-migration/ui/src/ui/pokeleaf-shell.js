@@ -157,6 +157,7 @@
     <button class="leaf-tool-item" data-old="autoSellBtn"><span class="ico">💰</span><span>Venda Automática</span><span class="leaf-tool-badge" id="leafAutoSellBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="autoSupplyBtn"><span class="ico">📦</span><span>Auto Supply</span><span class="leaf-tool-badge" id="leafAutoSupplyBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="dispatchHuntBtn"><span class="ico">🎯</span><span>Despachar Contas</span></button>
+    <button class="leaf-tool-item" data-old="newInstanceBtn"><span class="ico">➕</span><span>Nova instância (8 contas)</span></button>
     <button class="leaf-tool-item" data-old="scriptsBtn"><span class="ico">🧩</span><span>Scripts & Extensões</span></button>
     <button class="leaf-tool-item" data-old="twitchBonusBtn" id="leafTwitchBonusBtn"><span class="ico">🟣</span><span>Bônus Twitch</span><span class="leaf-tool-badge" id="leafTwitchBonusBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="kickBonusBtn" id="leafKickBonusBtn"><span class="ico">🟢</span><span>Bônus Kick</span><span class="leaf-tool-badge" id="leafKickBonusBadge">OFF</span></button>`;
@@ -197,6 +198,7 @@
       <button class="leaf-setting-btn" data-old="awake">Suspensão</button>
       <button class="leaf-setting-btn" data-old="minTray">Minimizar</button>
       <button class="leaf-setting-btn" data-old="voltaHunt">Voltar para hunt</button>
+      <button class="leaf-setting-btn" data-old="newInstanceBtn" style="grid-column:span 2">➕ Nova instância (8 contas)</button>
     </div></div>
     <div class="leaf-setting-section"><div class="leaf-setting-title">Segurança e dados</div><div class="leaf-setting-grid">
       <button class="leaf-setting-btn" data-old="sellguard">Venda protegida</button>

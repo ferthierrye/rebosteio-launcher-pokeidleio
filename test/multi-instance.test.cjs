@@ -70,4 +70,10 @@ assert.ok(batContent.includes('--instance=2') || batContent.includes('PIO_INSTAN
 const vbsContent = fs.readFileSync(path.join(root, 'tools/launch-rust.vbs'), 'utf8');
 assert.ok(vbsContent.includes('WScript.Arguments'), 'launch-rust.vbs deve encaminhar argumentos de linha de comando');
 
+// 7. Verificar pokeleaf-shell.js (Settings Drawer & Tools Menu)
+for (const shellPath of ['src/ui/pokeleaf-shell.js', 'rust-migration/ui/src/ui/pokeleaf-shell.js']) {
+  const shellContent = fs.readFileSync(path.join(root, shellPath), 'utf8');
+  assert.ok(shellContent.includes('data-old="newInstanceBtn"'), `pokeleaf-shell deve conter data-old="newInstanceBtn" em ${shellPath}`);
+}
+
 console.log('PASS: multi-instance contract, UI elements, API bridges, Rust commands and batch launchers.');
