@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.34 — Correção da Abertura de Nova Instância no Rust
+
+- Adicionadas permissões ACL explícitas (`instance_get` e `instance_new`) na lista `commands.allow` do Tauri v2 (`launcher.toml`), eliminando a rejeição silenciosa de comando.
+- Otimizado `spawn_new_instance` em Rust para invocar diretamente o executável atual (`current_exe`), iniciando a nova instância instantaneamente sem colisões de compilação ou bloqueios de target lock.
+- `Abrir PIO Rust.bat` atualizado para não tentar `cargo build` ao abrir uma instância secundária (evitando erro de arquivo em uso `os error 5`).
+- Feedback visual imediato com toast na interface ao solicitar a abertura da nova instância.
+
 ## 2.0.33 — Botão Nova Instância no Shell PokeLeaf
 
 - Integrado o botão "➕ Nova instância (8 contas)" no painel lateral de Configurações (seção Execução) e no menu popup de Ferramentas do shell moderno PokeLeaf.

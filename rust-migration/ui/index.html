@@ -9360,14 +9360,23 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     document.getElementById('errlogBtn').onclick = () => { try { window.pokeAPI.openErrorLog(); } catch { } menu.classList.remove('show'); };
     const newInstBtn = document.getElementById('newInstanceBtn');
     if (newInstBtn) {
-      newInstBtn.onclick = () => {
+      newInstBtn.onclick = async () => {
         menu.classList.remove('show');
         try {
+          if (typeof showToast === 'function') {
+            showToast('➕ Abrindo nova instância (8 contas)...');
+          }
           if (window.pokeAPI && window.pokeAPI.openNewInstance) {
-            window.pokeAPI.openNewInstance();
+            const ok = await window.pokeAPI.openNewInstance();
+            if (!ok && typeof showToast === 'function') {
+              showToast('⚠️ Falha ao abrir nova instância. Veja o relatório de erros.');
+            }
           }
         } catch (e) {
           console.error(e);
+          if (typeof showToast === 'function') {
+            showToast('⚠️ Erro ao abrir instância: ' + (e && e.message ? e.message : e));
+          }
         }
       };
     }

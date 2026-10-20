@@ -185,7 +185,7 @@
     webviewFillCreds: (index, email, pass) => invoke('webview_fill_creds', { index, email, pass }).catch(() => false),
 
     // 10. Metadados
-    appVersion: '2.0.32',
+    appVersion: '2.0.34',
     instanceId: 1,
     getInstanceInfo: async () => {
       try {
@@ -194,11 +194,22 @@
           window.pokeAPI.instanceId = info.id;
         }
         return info;
-      } catch {
+      } catch (e) {
+        console.warn('Falha em instance_get:', e);
         return { id: 1, isSecondary: false, accountOffset: 0 };
       }
     },
-    openNewInstance: (targetId) => invoke('instance_new', { targetId: targetId || null }).catch(() => false)
+    openNewInstance: async (targetId) => {
+      try {
+        const payload = targetId ? { targetId: Number(targetId) } : {};
+        const res = await invoke('instance_new', payload);
+        return Boolean(res);
+      } catch (err) {
+        console.error('Falha ao abrir nova instância (Tauri):', err);
+        try { window.pokeAPI.logError('Instance', String(err)); } catch {}
+        return false;
+      }
+    }
   };
 
   // O launcher carrega as credenciais uma única vez durante sua inicialização.
