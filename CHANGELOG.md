@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.33 — Botão Nova Instância no Shell PokeLeaf
+
+- Integrado o botão "➕ Nova instância (8 contas)" no painel lateral de Configurações (seção Execução) e no menu popup de Ferramentas do shell moderno PokeLeaf.
+- Ao clicar no botão, a segunda instância é iniciada com perfil e credenciais isolados (`pionailo-instancia-2`).
+- Recompilados binários de distribuição e executáveis Rust em modo debug e release.
+
 ## 2.0.32 — Suporte a múltiplas instâncias (multi-instância)
 
 - Adicionada opção "➕ Nova instância" no menu de Opções (e no menu da bandeja) para abrir uma nova janela independente do PIO Rebosteio, permitindo rodar 8 ou mais contas simultâneas.
