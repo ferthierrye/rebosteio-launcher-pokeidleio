@@ -48,11 +48,45 @@ pub struct Account {
     pub proxy: Option<serde_json::Value>,
 }
 
-fn get_app_data_dir() -> PathBuf {
-    if let Some(roaming) = std::env::var_os("APPDATA") {
-        PathBuf::from(roaming).join("pionailo")
+pub fn get_instance_id() -> usize {
+    if let Ok(val) = std::env::var("PIO_INSTANCE") {
+        if let Ok(id) = val.trim().parse::<usize>() {
+            if id > 0 {
+                return id;
+            }
+        }
+    }
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if let Some(stripped) = args[i].strip_prefix("--instance=") {
+            if let Ok(id) = stripped.trim().parse::<usize>() {
+                if id > 0 {
+                    return id;
+                }
+            }
+        }
+        if args[i] == "--instance" && i + 1 < args.len() {
+            if let Ok(id) = args[i + 1].trim().parse::<usize>() {
+                if id > 0 {
+                    return id;
+                }
+            }
+        }
+    }
+    1
+}
+
+pub fn get_app_data_dir() -> PathBuf {
+    let id = get_instance_id();
+    let folder = if id > 1 {
+        format!("pionailo-instancia-{}", id)
     } else {
-        PathBuf::from(".").join("data")
+        "pionailo".to_string()
+    };
+    if let Some(roaming) = std::env::var_os("APPDATA") {
+        PathBuf::from(roaming).join(folder)
+    } else {
+        PathBuf::from(".").join("data").join(folder)
     }
 }
 

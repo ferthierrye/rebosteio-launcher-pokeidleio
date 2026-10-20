@@ -12,7 +12,7 @@ pub struct DesktopSettings {
     window_transition: Mutex<()>,
 }
 fn data_dir() -> PathBuf {
-    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into())).join("pionailo")
+    crate::credentials::get_app_data_dir()
 }
 impl DesktopSettings {
     pub fn new() -> Self {
@@ -45,8 +45,13 @@ impl DesktopSettings {
     }
 }
 fn startup_path() -> PathBuf {
-    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into()))
-        .join("Microsoft/Windows/Start Menu/Programs/Startup/PIO Nailo Rust.lnk")
+    let id = crate::credentials::get_instance_id();
+    let name = if id > 1 {
+        format!("Microsoft/Windows/Start Menu/Programs/Startup/PIO Nailo Rust Instancia {}.lnk", id)
+    } else {
+        "Microsoft/Windows/Start Menu/Programs/Startup/PIO Nailo Rust.lnk".to_string()
+    };
+    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into())).join(name)
 }
 pub fn autostart_enabled() -> bool {
     cfg!(windows) && startup_path().is_file()
@@ -134,15 +139,23 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         menu::{Menu, MenuItem},
         tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     };
-    let open = MenuItem::with_id(app, "open", "Abrir PIO Nailo", true, None::<&str>)?;
+    let id = crate::credentials::get_instance_id();
+    let tooltip = if id > 1 {
+        format!("PIO Rebosteio (Instância {})", id)
+    } else {
+        "PIO Rebosteio".to_string()
+    };
+    let open = MenuItem::with_id(app, "open", "Abrir PIO Rebosteio", true, None::<&str>)?;
+    let new_inst = MenuItem::with_id(app, "new_instance", "Nova Instância (8 contas)", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &new_inst, &quit])?;
     let mut builder = TrayIconBuilder::with_id("pio-main")
-        .tooltip("PIO Nailo")
+        .tooltip(&tooltip)
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
+        .on_menu_event(move |app, event| match event.id.as_ref() {
             "open" => restore_window(app),
+            "new_instance" => { let _ = crate::spawn_new_instance(id + 1); },
             "quit" => app.exit(0),
             _ => {}
         })

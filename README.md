@@ -27,6 +27,12 @@ Um cantinho da comunidade para quem curte PokeIdle, boas caçadas e aquela resen
 
 ---
 
+## Instalação por executável (Windows x64)
+
+Abra `PIO-Nailo-2.0.32-Setup.exe` e conclua a instalação. O pacote tem aproximadamente 1,62 GB; a extração pode levar alguns minutos e requer cerca de 5 GB livres durante a instalação. Depois use o atalho PIO Nailo. O pacote inclui Python, bibliotecas de login, Camoufox e o instalador offline do WebView2; não requer Rust, Visual Studio, Node ou comandos no computador do jogador. O acesso ao jogo continua exigindo internet.
+
+Para gerar o instalador neste checkout preparado: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-installer.ps1`. O resultado fica em `dist/`. O `.bat` permanece como alternativa para desenvolvimento pelo código-fonte.
+
 ## 👋 Chega mais, treinador!
 
 Launcher de PokeIdle para Windows x64, com quatro contas, WebView2 e backend Rust. Esta é a versão principal do projeto. O código Electron permanece como referência e para testes de migração; seu antigo inicializador foi removido.

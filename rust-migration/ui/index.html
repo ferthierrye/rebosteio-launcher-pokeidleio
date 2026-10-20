@@ -2688,6 +2688,8 @@
         <button id="minTray"
           title="O que o botão minimizar faz: esconder na bandeja ou minimizar normal na barra de tarefas">📥 Minimiza
           p/ bandeja</button>
+        <button id="newInstanceBtn"
+          title="Abre uma nova instância independente do PIO Rebosteio para rodar mais 4 contas (8 contas no total)">➕ Nova instância</button>
         <button id="autoStart" style="display:none"
           title="Cria um atalho na pasta Inicializar do Windows pra abrir o PokeGrid junto com o sistema">🚀 Abrir com o
           Windows</button>
@@ -3310,6 +3312,7 @@
   </div>
 
   <script>
+    let appInstanceId = 1;
     // Relatorio de erros: qualquer erro de JS da interface vai pro arquivo (via main.js)
     window.addEventListener('error', (e) => { try { window.pokeAPI.logError('interface', ((e.error && e.error.stack) || e.message || '?') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); } catch { } });
     window.addEventListener('unhandledrejection', (e) => { try { window.pokeAPI.logError('interface-promise', (e.reason && e.reason.stack) || String(e.reason)); } catch { } });
@@ -3433,6 +3436,7 @@
         scHint: 'Rode userscripts (estilo Tampermonkey) dentro de cada painel do jogo. O IV calc já vem pronto. Você pode colar os seus. <b>Só adicione scripts em que você confia</b>, eles têm acesso total à página do jogo.',
         scDrop: 'Solte o arquivo .user.js aqui', scUrlPh: 'Link do script no GitHub (.user.js)', scOuCole: 'ou cole o código', scNamePh: 'Nome do script', scCodePh: 'Cole aqui o código do userscript (@grant none)', scAddBtn: '+ Adicionar script',
         autoSupplyBtn: '📦 Auto Supply', autoSupplyTitle: 'Reabastecimento automático de Pokébolas e Poções com verificação de saldo',
+        newInstance: '➕ Nova instância', newInstanceTitle: 'Abre uma nova instância independente do PIO Rebosteio para rodar mais 4 contas (8 contas no total)',
 
       },
       en: {
@@ -3484,6 +3488,7 @@
         scHint: 'Run userscripts (Tampermonkey style) inside each game panel. The IV calc comes built in. You can paste your own. <b>Only add scripts you trust</b>, they get full access to the game page.',
         scDrop: 'Drop the .user.js file here', scUrlPh: 'Script link on GitHub (.user.js)', scOuCole: 'or paste the code', scNamePh: 'Script name', scCodePh: 'Paste the userscript code here (@grant none)', scAddBtn: '+ Add script',
         autoSupplyBtn: '📦 Auto Supply', autoSupplyTitle: 'Automatic restock of Pokéballs and Potions with budget check',
+        newInstance: '➕ New instance', newInstanceTitle: 'Opens an independent new instance of PIO Rebosteio to run 4 more accounts (8 accounts total)',
 
       },
       es: {
@@ -3534,6 +3539,7 @@
         scHint: 'Ejecuta userscripts (estilo Tampermonkey) dentro de cada panel del juego. La calculadora de IV ya viene lista. Puedes pegar los tuyos. <b>Añade solo scripts en los que confías</b>, tienen acceso total a la página del juego.',
         scDrop: 'Suelta el archivo .user.js aquí', scUrlPh: 'Enlace del script en GitHub (.user.js)', scOuCole: 'o pega el código', scNamePh: 'Nombre del script', scCodePh: 'Pega aquí el código del userscript (@grant none)', scAddBtn: '+ Añadir script',
         autoSupplyBtn: '📦 Auto Supply', autoSupplyTitle: 'Reabastecimiento automático de Pokébolas y Pociones con control de saldo',
+        newInstance: '➕ Nueva instancia', newInstanceTitle: 'Abre una nueva instancia independiente de PIO Rebosteio para ejecutar 4 cuentas más (8 cuentas en total)',
 
       }
     };
@@ -4458,9 +4464,14 @@
         famCard.className = 'acc-family';
         famCard.dataset.fam = String(f);
 
-        const startAcc = f * 4;
+        const instanceOffset = (typeof appInstanceId === 'number' && appInstanceId > 1) ? (appInstanceId - 1) * 4 : 0;
+        const startAcc = instanceOffset + f * 4;
         const endAcc = startAcc + 4;
         const famProxy = (accounts[startAcc] && accounts[startAcc].proxy) || {};
+        if (typeof appInstanceId === 'number' && appInstanceId > 1) {
+          const mTitle = document.querySelector('#modal h2');
+          if (mTitle) mTitle.textContent = `${t('mH2')} — Instância ${appInstanceId} (Contas ${String(startAcc + 1).padStart(2, '0')} a ${String(endAcc).padStart(2, '0')})`;
+        }
 
         famCard.innerHTML = `
         <div class="acc-family-header">
@@ -9162,6 +9173,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
       const fq = document.getElementById('faqBtn'); fq.textContent = t('faq'); fq.title = t('faqTitle');
       const mb = document.getElementById('manBtn'); mb.textContent = t('manual'); mb.title = t('manualTitle');
       const asb = document.getElementById('autoSupplyBtn'); if (asb) { asb.textContent = t('autoSupplyBtn'); asb.title = t('autoSupplyTitle'); }
+      const nib = document.getElementById('newInstanceBtn'); if (nib) { nib.textContent = t('newInstance'); nib.title = t('newInstanceTitle'); }
 
       donTop.textContent = t('donTitle'); donTop.title = t('donText');
       langBtns.forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
@@ -9266,6 +9278,28 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
       const vAtual = window.pokeAPI && window.pokeAPI.appVersion;
       const elVer = document.getElementById('appVer');
       if (vAtual) elVer.textContent = 'v' + vAtual;
+      const syncInstanceBadge = (id) => {
+        appInstanceId = id;
+        if (id > 1) {
+          document.title = `Poke Idle IO — Reboste.io Launcher (Instância ${id})`;
+          if (elVer && !document.getElementById('instanceBadge')) {
+            const badge = document.createElement('span');
+            badge.id = 'instanceBadge';
+            badge.textContent = ` [Instância ${id}]`;
+            badge.style.cssText = 'color:#58a6ff;font-weight:600;margin-left:4px;';
+            badge.title = `Instância ${id} (Contas ${((id - 1) * 4) + 1} a ${id * 4})`;
+            elVer.appendChild(badge);
+          }
+        }
+      };
+      if (window.pokeAPI && typeof window.pokeAPI.instanceId === 'number' && window.pokeAPI.instanceId > 1) {
+        syncInstanceBadge(window.pokeAPI.instanceId);
+      }
+      if (window.pokeAPI && window.pokeAPI.getInstanceInfo) {
+        Promise.resolve(window.pokeAPI.getInstanceInfo()).then(info => {
+          if (info && info.id) syncInstanceBadge(info.id);
+        }).catch(() => {});
+      }
       // Aviso de versao nova, 1x/dia. Nasceu do incidente 1.5.5: quem usa a versao sem executavel
       // (sem o avisador do instalador) ficou preso numa versao quebrada sem saber.
       const vMaior = (a, b) => { const A = String(a).split('.'), B = String(b).split('.'); for (let k = 0; k < 3; k++) { if ((+A[k] || 0) > (+B[k] || 0)) return true; if ((+A[k] || 0) < (+B[k] || 0)) return false; } return false; };
@@ -9324,6 +9358,19 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     const menu = document.getElementById('menu');
     document.getElementById('menuBtn').onclick = (e) => { e.stopPropagation(); menu.classList.toggle('show'); };
     document.getElementById('errlogBtn').onclick = () => { try { window.pokeAPI.openErrorLog(); } catch { } menu.classList.remove('show'); };
+    const newInstBtn = document.getElementById('newInstanceBtn');
+    if (newInstBtn) {
+      newInstBtn.onclick = () => {
+        menu.classList.remove('show');
+        try {
+          if (window.pokeAPI && window.pokeAPI.openNewInstance) {
+            window.pokeAPI.openNewInstance();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+    }
     // backup/restore: configuracoes e historico do localStorage (senhas nao: ficam criptografadas no main).
     // userScripts/scriptsOn NUNCA entram: sao codigo injetado nos paineis logados, e um arquivo de
     // config vindo de outra pessoa viraria execucao de codigo na conta de quem importa.

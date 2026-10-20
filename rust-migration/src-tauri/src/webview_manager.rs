@@ -7,17 +7,9 @@ use tauri::{
 use tokio::sync::{RwLock, oneshot};
 
 fn get_account_profile_dir(index: usize) -> PathBuf {
-    if let Some(roaming) = std::env::var_os("APPDATA") {
-        PathBuf::from(roaming)
-            .join("pionailo")
-            .join("profiles")
-            .join(format!("conta_{}", index + 1))
-    } else {
-        PathBuf::from(".")
-            .join("data")
-            .join("profiles")
-            .join(format!("conta_{}", index + 1))
-    }
+    crate::credentials::get_app_data_dir()
+        .join("profiles")
+        .join(format!("conta_{}", index + 1))
 }
 
 pub const CHROME_USER_AGENT: &str =

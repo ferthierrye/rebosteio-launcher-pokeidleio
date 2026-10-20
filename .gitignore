@@ -104,3 +104,7 @@ pokeidle_maps/
 
 !tools/launch-rust.vbs
 !tools/run-rust-hidden.ps1
+
+!tools/build-installer.ps1
+!tools/prepare-login-runtime.py
+!tools/installer-hooks.nsh

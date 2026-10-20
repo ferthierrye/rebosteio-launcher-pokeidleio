@@ -1,8 +1,7 @@
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf};
 fn path(platform: &str) -> PathBuf {
-    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_else(|| ".".into()))
-        .join("pionailo")
+    crate::credentials::get_app_data_dir()
         .join(format!("{}-creds.enc", platform))
 }
 pub fn try_load(platform: &str) -> Result<Value, String> {

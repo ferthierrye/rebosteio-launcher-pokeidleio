@@ -6,9 +6,14 @@ echo   PIO Nailo - Launcher Rust Nativo + Headless
 echo ===================================================
 echo.
 
-echo Fechando instancia anterior (se houver)...
-taskkill /F /IM pio-nailo-rust.exe >nul 2>&1
-ping 127.0.0.1 -n 2 >nul
+echo "%*" | findstr /i "\-\-instance" >nul
+if %ERRORLEVEL% NEQ 0 (
+    if "%PIO_INSTANCE%"=="" (
+        echo Fechando instancia anterior (se houver)...
+        taskkill /F /IM pio-nailo-rust.exe >nul 2>&1
+        ping 127.0.0.1 -n 2 >nul
+    )
+)
 
 echo Compilando e iniciando PIO Nailo Rust...
 cargo build
@@ -19,5 +24,5 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
-start "" "%~dp0src-tauri\target\debug\pio-nailo-rust.exe"
+start "" "%~dp0src-tauri\target\debug\pio-nailo-rust.exe" %*
 exit /b 0

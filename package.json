@@ -1,6 +1,6 @@
 {
   "name": "piorebosteio",
-  "version": "2.0.30",
+  "version": "2.0.32",
   "description": "PIO Rebosteio — launcher Rust/Tauri para Poke Idle IO com quatro contas no Windows",
   "main": "main.js",
   "author": "souonailo",
@@ -25,7 +25,8 @@
     "test:kick-points-integration": "electron test/kick-points-electron.test.cjs",
     "mem:run": "electron . --mem-probe --mem-tray-after=300 --mem-show-after=2100 --mem-duration=2160",
     "mem:bench": "node tools/mem-bench.js",
-    "mem:report": "node tools/mem-report.js"
+    "mem:report": "node tools/mem-report.js",
+    "test:multi-instance": "node test/multi-instance.test.cjs"
   },
   "keywords": [
     "electron",

@@ -33,6 +33,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("turnstile_solver")
 
+# Bundled runtime resolves browser metadata/fonts locally and never fetches a browser.
+if os.environ.get("PIO_NAILO_CAMOUFOX"):
+    from pathlib import Path
+    import camoufox.pkgman as _camoufox_pkgman
+    _bundled_browser_dir = Path(os.environ["PIO_NAILO_CAMOUFOX"]).parent
+    _camoufox_pkgman.camoufox_path = lambda download_if_missing=True: _bundled_browser_dir
+    import camoufox.utils as _camoufox_utils
+    _camoufox_utils.installed_verstr = lambda: _camoufox_pkgman.Version.from_path(_bundled_browser_dir).full_string
+
 DEFAULT_LOGIN_URL = "https://pokeidle.io/app"
 DEFAULT_API_BASE = "https://pokeidle.io"
 DEFAULT_SITE_KEY = "0x4AAAAAAEccJgXg19_AZoDr"
@@ -195,6 +204,10 @@ async def solve_turnstile_stealth(
     </script>
 </body>
 </html>"""
+
+    bundled_browser = os.environ.get("PIO_NAILO_CAMOUFOX")
+    if bundled_browser:
+        proxy_args["executable_path"] = bundled_browser
 
     async with AsyncCamoufox(
         headless=headless,

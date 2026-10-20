@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.32 — Suporte a múltiplas instâncias (multi-instância)
+
+- Adicionada opção "➕ Nova instância" no menu de Opções (e no menu da bandeja) para abrir uma nova janela independente do PIO Rebosteio, permitindo rodar 8 ou mais contas simultâneas.
+- Cada instância opera com perfil e diretório de dados completamente isolados (`pionailo-instancia-N`), garantindo sessões, cookies, WebView2, credenciais e armazenamentos locais independentes sem conflito de locks.
+- Identificação visual clara nas instâncias secundárias: badge indicativo no cabeçalho `[Instância N]` e no modal de Treinadores exibindo o intervalo de contas correspondente (ex.: Contas 05 a 08).
+- Criado o atalho `Abrir Nova Instancia.bat` na raiz do projeto com suporte a encaminhamento de parâmetros de instância via `--instance=N` e `PIO_INSTANCE=N`.
+- Suporte unificado em ambos os backends Electron e Rust/Tauri com novo teste automatizado `test:multi-instance`.
+
+## 2.0.31 — Instalador Windows
+
+- Distribuição compilada com Python, bibliotecas de login e navegador Camoufox incluídos.
+- Login localiza os componentes instalados independentemente da pasta de abertura.
+- Instalador inclui o instalador offline do WebView2, sem exigir Rust ou ferramentas de compilação no computador do usuário.
+
 ## 2.0.30 — Depot automático no Headless
 
 - Venda automática do Depot também na conexão nativa Headless, a cada minuto e após confirmação das proteções de Shiny, nota ≥ 3,5 e P5.

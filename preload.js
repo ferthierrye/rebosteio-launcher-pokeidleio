@@ -54,5 +54,8 @@ contextBridge.exposeInMainWorld('pokeAPI', {
   onBlasterStatus: (cb) => ipcRenderer.on('blaster:status', (_e, data) => cb(data)),
   // versao do app: vem do processo principal (a UA nao carrega mais o token pokegrid/x, e o
   // preload roda em sandbox, entao require de arquivo local nao e confiavel)
-  appVersion: (() => { try { return ipcRenderer.sendSync('app:version'); } catch { return ''; } })()
+  appVersion: (() => { try { return ipcRenderer.sendSync('app:version'); } catch { return ''; } })(),
+  instanceId: (() => { try { return ipcRenderer.sendSync('instance:id'); } catch { return 1; } })(),
+  getInstanceInfo: () => ipcRenderer.invoke('instance:get'),
+  openNewInstance: (targetId) => ipcRenderer.invoke('instance:new', targetId)
 });

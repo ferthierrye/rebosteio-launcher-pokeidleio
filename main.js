@@ -8,10 +8,28 @@ const memOpts = parseMemArgs(process.argv, process.env);
 // estudo de RAM (MEMORY-CASE-STUDY.md): --exp=E2 desliga a aceleracao de GPU (opcional, -100 MB)
 const EXP = parseExperiments(process.argv, process.env);
 
-// Isola este launcher do Absol Launcher original para poderem rodar simultaneamente sem conflito
-app.name = 'pionailo';
+function getInstanceId() {
+  const arg = process.argv.find(a => a.startsWith('--instance='));
+  if (arg) {
+    const val = parseInt(arg.split('=')[1], 10);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  const idx = process.argv.indexOf('--instance');
+  if (idx !== -1 && process.argv[idx + 1]) {
+    const val = parseInt(process.argv[idx + 1], 10);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  if (process.env.PIO_INSTANCE) {
+    const val = parseInt(process.env.PIO_INSTANCE, 10);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  return 1;
+}
+const instanceId = getInstanceId();
+const appDirName = instanceId > 1 ? `pionailo-instancia-${instanceId}` : 'pionailo';
+app.name = instanceId > 1 ? `pionailo-${instanceId}` : 'pionailo';
 try {
-  app.setPath('userData', path.join(app.getPath('appData'), 'pionailo'));
+  app.setPath('userData', path.join(app.getPath('appData'), appDirName));
 } catch (e) {}
 
 // Mantém a composição fora da GPU, conforme solicitado.
@@ -249,8 +267,8 @@ ipcMain.handle('userscript:request', (_e, url) => pedeParaExtensao(url));
 // segunda instancia: fecha e o 'second-instance' da primeira mostra a janela dela. Fica no relatorio, pra separar
 // 'nem rodou' (antivirus, Controle inteligente de aplicativos) de 'ja tinha um aberto' quando alguem diz que nada abre
 // O quit() antes do ready nao impede o ready: sem o lockOk o whenReady criava a janela e gravava 'janela criada' aqui tambem
-const lockOk = app.requestSingleInstanceLock();
-if (!lockOk) { logErro('boot', 'ja havia um PokeGrid aberto: esta instancia fechou e mostrou aquele'); app.quit(); }
+const lockOk = app.requestSingleInstanceLock({ instance: instanceId });
+if (!lockOk) { logErro('boot', `ja havia um PokeGrid aberto para instancia ${instanceId}: esta instancia fechou e mostrou aquele`); app.quit(); }
 
 // Paineis presos ao dominio do jogo: nada de popup, e navegar o painel
 // (que carrega a sessao logada) para outro site abre no navegador de fora.
@@ -792,6 +810,39 @@ app.userAgentFallback = app.userAgentFallback
 // Notificacao do SO (alertas de queda e de sem pokebola).
 // versao do app pro badge do topo (sendSync: disponivel no load, mesmo com o preload em sandbox)
 ipcMain.on('app:version', (e) => { e.returnValue = app.getVersion(); });
+ipcMain.on('instance:id', (e) => { e.returnValue = instanceId; });
+ipcMain.handle('instance:get', () => ({
+  id: instanceId,
+  isSecondary: instanceId > 1,
+  accountOffset: (instanceId - 1) * 4
+}));
+ipcMain.handle('instance:new', (_e, targetId) => {
+  const nextId = targetId || (instanceId + 1);
+  return spawnNewInstance(nextId);
+});
+
+function spawnNewInstance(targetId = 2) {
+  const targetInstance = parseInt(targetId, 10) || 2;
+  const targetArg = `--instance=${targetInstance}`;
+  try {
+    const env = { ...process.env, PIO_INSTANCE: String(targetInstance) };
+    let child;
+    if (app.isPackaged) {
+      child = spawn(process.execPath, [targetArg], { detached: true, stdio: 'ignore', env });
+    } else {
+      const appPath = process.argv[1] || '.';
+      child = spawn(process.execPath, [appPath, targetArg], { detached: true, stdio: 'ignore', env });
+    }
+    if (child) {
+      child.unref();
+      return { ok: true, instanceId: targetInstance };
+    }
+    return { ok: false, error: 'Falha ao iniciar processo' };
+  } catch (err) {
+    logErro('instance', 'falha ao abrir nova instancia: ' + (err && err.message));
+    return { ok: false, error: err && err.message };
+  }
+}
 ipcMain.handle('notify', (_e, title, body) => {
   try { if (Notification.isSupported()) new Notification({ title, body }).show(); } catch {}
 });
@@ -1065,6 +1116,7 @@ app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: 1600,
     height: 900,
+    title: instanceId > 1 ? `PIO Rebosteio - Instância ${instanceId} (Contas ${((instanceId - 1) * 4) + 1}-${instanceId * 4})` : 'PIO Rebosteio',
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#081224',
@@ -1192,9 +1244,10 @@ app.whenReady().then(() => {
   // segue funcionando sem bandeja em vez de morrer no boot.
   try {
     tray = new Tray(path.join(__dirname, 'tray.png'));
-    tray.setToolTip('PIO Nailo · Pokéidle.io');
+    tray.setToolTip(`PIO Rebosteio · Pokéidle.io${instanceId > 1 ? ` (Instância ${instanceId})` : ''}`);
     const menuBandeja = Menu.buildFromTemplate([
       { label: 'Mostrar', click: mostrar },
+      { label: 'Nova instância (8 contas)', click: () => spawnNewInstance(instanceId + 1) },
       { label: 'Abrir com o Windows', type: 'checkbox',
         checked: autoStartOn(), visible: process.platform === 'win32',
         click: (item) => { const r = setAutoStart(item.checked); item.checked = r; win.webContents.send('autostart', r); } },
