@@ -1,3 +1,43 @@
+## Scripts e extensões — GitHub
+
+- Corrigido o contrato Rust de download e GM_xmlhttpRequest para devolver ok, status, URL e código, como esperado pelo menu.
+- Links GitHub blob/raw convertidos para conteúdo raw; respostas HTML, erros HTTP, tamanho acima de 2 MB e redirecionamentos externos são rejeitados. Timeout de 15 segundos e revalidação de cada redirecionamento.
+- Scripts instalados por URL são sincronizados ao iniciar, ao abrir o menu e a cada 30 minutos; botão para verificar imediatamente. Atualizações são salvas para a próxima recarga sem interromper as contas abertas.
+- Falhas de conexão ou persistência mantêm a versão instalada.
+- Download público de auto-sniper.user.js validado sem executar o script.
+
+## Visual do painel do Depot
+
+- Painel com ícones enviados pelo usuário, cartões por personagem, interruptores e destaques das regras de nível.
+- CSS isolado e layout adaptável; fechamento por botão, Escape e fundo preservado.
+
+## Venda limitada ao Depot
+
+- Pokémon da equipe, ativo e Coleção não bloqueiam a venda dos Pokémon de nível até 100 que estão no Depot.
+- Transferir um Pokémon da Coleção ao Depot passa a considerá-lo no lote, preservando a proteção de nível 101+.
+- Painel consulta o estado do executor quando disponível em vez de mostrar apenas a preferência ligada.
+
+## Correção do painel de venda do Depot
+
+- Permissões de preferências concedidas também à janela principal; falhas de consulta não são mais apresentadas como personagem desconectado.
+- Painel usa o cache das contas no modo nativo, mesmo com as janelas do jogo temporariamente ocultas pelo menu.
+- Testes do painel cobrem ativação, fechamento e acesso nativo às preferências.
+
+## Proteção por nível na venda do Depot
+
+- Venda automática não cruza IDs de Pokémon nível 101+ ou de nível desconhecido. O endpoint em lote pode manter também níveis menores após esses IDs.
+- Deltas preservam o nível conhecido no Headless.
+
+## Correção local — venda do Depot
+
+- Ferramentas → Venda do Depot abre configurações por personagem.
+- Removidos os comandos antigos de venda de loot.
+- Preferências v2 começam desligadas e não importam ativações antigas.
+- Venda de todo o Depot a cada minuto quando explicitamente ligada por personagem; desligar interrompe novos comandos no navegador e Headless.
+- A sessão já aberta não é modificada; exige recompilar/reabrir o launcher.
+
+# Changelog
+
 # Changelog
 
 ## 2.0.34 — Correção da Abertura de Nova Instância no Rust

@@ -1,3 +1,4 @@
+pub mod userscripts;
 pub mod credentials;
 pub mod account_proxy;
 pub mod desktop_settings;
@@ -230,33 +231,14 @@ async fn webhook_send(url: String, text: String) -> bool {
     client.post(&url).json(&body).send().await.is_ok()
 }
 
-#[derive(Serialize)]
-pub struct ExtensionResponse {
-    pub status: u16,
-    pub body: String,
+#[tauri::command]
+async fn userscript_fetch(url: String) -> userscripts::Response {
+    userscripts::fetch(&url, true).await
 }
 
 #[tauri::command]
-async fn userscript_fetch(url: String) -> Option<String> {
-    let client = reqwest::Client::new();
-    if let Ok(resp) = client.get(&url).send().await {
-        if resp.status().is_success() {
-            return resp.text().await.ok();
-        }
-    }
-    None
-}
-
-#[tauri::command]
-async fn userscript_request(url: String) -> ExtensionResponse {
-    let client = reqwest::Client::new();
-    if let Ok(resp) = client.get(&url).send().await {
-        let status = resp.status().as_u16();
-        let body = resp.text().await.unwrap_or_default();
-        ExtensionResponse { status, body }
-    } else {
-        ExtensionResponse { status: 500, body: String::new() }
-    }
+async fn userscript_request(url: String) -> userscripts::Response {
+    userscripts::fetch(&url, false).await
 }
 
 #[tauri::command]

@@ -1,0 +1,28 @@
+/* Depot settings: scoped to avoid changing the game or other panels. */
+#depotSettingsDialog{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:rgba(5,10,18,.78);font-family:Segoe UI,sans-serif;color:#e7edf6}
+#depotSettingsDialog *{box-sizing:border-box}
+#depotSettingsDialog .depot-panel{position:relative;width:640px;max-width:100%;max-height:90vh;overflow:auto;padding:30px;border:1px solid #445568;border-radius:22px;background:radial-gradient(ellipse at 95% 0%,#55452a55,transparent 48%),linear-gradient(145deg,#263242,#17212e);box-shadow:0 30px 100px #0009;user-select:none;font-size:13px;line-height:1.55}
+#depotSettingsDialog .depot-close{position:absolute;right:22px;top:22px;border:1px solid #ffffff22;border-radius:9px;background:#ffffff08;color:#c1cddd;padding:7px 12px;cursor:pointer;font:600 12px Segoe UI,sans-serif}
+#depotSettingsDialog button:hover{background:#ffffff18}
+#depotSettingsDialog button:focus-visible,#depotSettingsDialog input:focus-visible{outline:2px solid #efd18a;outline-offset:4px}
+#depotSettingsDialog .depot-eyebrow{color:#d8b675;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:3px 0 14px;padding-right:85px}
+#depotSettingsDialog h3{font-size:25px;line-height:1.2;letter-spacing:-.5px;margin:0 0 12px;padding:5px 0 5px 48px;background:url('assets/depot-bag.png') left center/32px auto no-repeat;image-rendering:pixelated;color:#f5f7fb}
+#depotSettingsDialog .depot-intro{color:#aebed0;margin:0 0 20px;max-width:470px;font-size:13px}
+#depotSettingsDialog .depot-rules{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 24px}
+#depotSettingsDialog .depot-chip{border:1px solid #ffffff16;background:#ffffff06;border-radius:8px;padding:7px 10px;color:#bed0e0;font-size:11px;font-weight:600}
+#depotSettingsDialog .depot-chip:first-child{color:#e5c789;border-color:#c9a55f44;background:#c9a55f10;padding-left:29px;background-image:url('assets/depot-coin.png');background-position:10px center;background-size:12px;background-repeat:no-repeat;image-rendering:pixelated}
+#depotSettingsDialog .depot-section-label{display:flex;justify-content:space-between;color:#aab9ca;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;margin-bottom:10px;font-weight:700}
+#depotSettingsDialog .depot-account{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:0 12px;align-items:center;position:relative;margin:8px 0;padding:15px 16px;border:1px solid #ffffff12;border-radius:12px;background:#0c152140;min-height:76px}
+#depotSettingsDialog .depot-account::before{content:'';grid-column:1;grid-row:1 / span 2;width:36px;height:36px;border:1px solid #ffffff15;border-radius:10px;background:#ffffff06 url('assets/depot-ball.png') center/20px no-repeat;image-rendering:pixelated}
+#depotSettingsDialog .depot-account[data-enabled=true]{border-color:#79c4a130;background:#3b88600c}
+#depotSettingsDialog .depot-account-name{grid-column:2;grid-row:1;font-size:14px;font-weight:650;color:#edf2f8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#depotSettingsDialog .depot-account-state{grid-column:2;grid-row:2;color:#94a8bd;font-size:11px;overflow-wrap:anywhere}
+#depotSettingsDialog .depot-account[data-enabled=true] .depot-account-state{color:#91cfb0}
+#depotSettingsDialog .depot-account input{grid-column:3;grid-row:1 / span 2;appearance:none!important;-webkit-appearance:none!important;width:44px;height:25px;margin:0;border:1px solid #6a7e9366;border-radius:20px;background:#101c2b;cursor:pointer;position:relative;transition:background .18s,border-color .18s;flex-shrink:0}
+#depotSettingsDialog .depot-account input::before{content:'';display:block;position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#8498ad;transition:transform .18s,background .18s}
+#depotSettingsDialog .depot-account input:checked{background:#508c6e;border-color:#88c7a2}
+#depotSettingsDialog .depot-account input:checked::before{transform:translateX(19px);background:#ebfff2}
+#depotSettingsDialog .depot-account input:disabled{opacity:.45;cursor:wait}
+#depotSettingsDialog .depot-footnote{color:#8fa3b8;border-top:1px solid #ffffff10;margin:20px 0 0;padding:15px 0 0;font-size:11px}
+@media(max-width:520px){#depotSettingsDialog{padding:12px}#depotSettingsDialog .depot-panel{padding:24px 18px}#depotSettingsDialog h3{font-size:21px}#depotSettingsDialog .depot-close{top:16px;right:16px}#depotSettingsDialog .depot-account{padding:12px;gap:0 9px}}
+@media(prefers-reduced-motion:reduce){#depotSettingsDialog input,#depotSettingsDialog input::before{transition:none!important}}

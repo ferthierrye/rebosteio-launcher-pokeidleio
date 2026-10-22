@@ -9,12 +9,12 @@ pub struct Preferences {
     #[serde(default)]
     pub configured: bool,
 }
-fn enabled_default() -> bool { true }
+fn enabled_default() -> bool { false }
 impl Default for Preferences {
-    fn default() -> Self { Self { enabled: true, configured: false } }
+    fn default() -> Self { Self { enabled: false, configured: false } }
 }
 fn path() -> PathBuf {
-    crate::credentials::get_app_data_dir().join("auto-depot.json")
+    crate::credentials::get_app_data_dir().join("auto-depot-v2.json")
 }
 pub fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
@@ -42,7 +42,8 @@ pub fn auto_depot_get(account: String, legacy: Option<Preferences>) -> Result<Pr
     let mut guard = store().lock().map_err(|e| e.to_string())?;
     let values = guard.as_mut().map_err(|e| e.clone())?;
     if let Some(p) = values.get(&account) { return Ok(p.clone()); }
-    let pref = legacy.unwrap_or_default();
+    let _ = legacy; // Never migrate the previous implicit opt-in.
+    let pref = Preferences::default();
     let mut next = values.clone(); next.insert(account, pref.clone());
     persist(&next)?; *values = next;
     Ok(pref)
@@ -65,7 +66,6 @@ pub struct AutoDepot {
     pokemons: BTreeMap<String, Value>,
     active_id: String,
     ready: bool,
-    last_command: Option<i64>,
     last_sale: Option<i64>,
 }
 fn id(value: &Value) -> String {
@@ -81,6 +81,7 @@ impl AutoDepot {
         if t == "welcome" || p["cheio"] == true {
             *self = Self::default();
             self.account = id(&p["id"]);
+            self.ready = true;
         }
         if self.account.is_empty() { return; }
         if p.get("id").is_some() && id(&p["id"]) != self.account { *self = Self::default(); return; }
@@ -96,7 +97,10 @@ impl AutoDepot {
             self.pokemons = list.iter().map(|p| (id(&p["id"]), p.clone())).collect();
         }
         if let Some(list) = p["pkMud"].as_array() {
-            for p in list { self.pokemons.insert(id(&p["id"]), p.clone()); }
+            for p in list {
+                let entry = self.pokemons.entry(id(&p["id"])).or_insert_with(|| json!({}));
+                if let (Some(old), Some(delta)) = (entry.as_object_mut(), p.as_object()) { old.extend(delta.clone()); }
+            }
         }
         if let Some(list) = p["pkFora"].as_array() {
             for p in list { self.pokemons.remove(&id(p)); }
@@ -111,79 +115,64 @@ impl AutoDepot {
         Ok(command)
     }
     fn command(&mut self, now: i64, pref: &mut Preferences) -> Option<Value> {
-        if !self.ready || !pref.enabled { return None; }
-        let a = &self.automation;
-        let shiny = a["autoLockShiny"] == true;
-        let nota = a["autoLockNota9"] == true;
-        let p5 = a["autoLockP5"] == true;
-        if !pref.configured {
-            if self.last_command.is_some_and(|t| now - t < 5000) { return None; }
-            let command = if !shiny { json!({"t":"shop.autoLockShiny","ativo":true}) }
-                else if !nota || a["autoLockNotaMin"].as_f64() != Some(3.5) {
-                    json!({"t":"shop.autoLockNota9","ativo":true,"nota":3.5})
-                } else if !p5 { json!({"t":"shop.autoLockP5","ativo":true}) }
-                else { pref.configured = true; self.last_command = Some(now); return None; };
-            self.last_command = Some(now); return Some(command);
-        }
-        if !shiny || !nota || !p5 || self.last_command.is_some_and(|t| now - t < 5000)
-            || self.last_sale.is_some_and(|t| now - t < 60000) { return None; }
-        let locked = a["pokemonTravado"].as_array();
-        let max = self.pokemons.values().filter(|p| p["slot"].is_null()
-            && id(&p["id"]) != self.active_id && p["shiny"] != true && p["potencia"].as_u64() != Some(5)
-            && !locked.is_some_and(|ids| ids.iter().any(|v| id(v) == id(&p["id"]))))
-            .filter_map(|p| p["id"].as_u64().or_else(|| p["id"].as_str()?.parse().ok())).max()?;
+        if !self.ready || !pref.enabled || self.last_sale.is_some_and(|t| now - t < 60000) { return None; }
+        let numeric_id = |p: &Value| p["id"].as_u64().or_else(|| p["id"].as_str()?.parse::<u64>().ok())
+            .filter(|id| *id > 0 && *id <= 9_007_199_254_740_991);
+        let safe_level = |p: &Value| p["level"].as_f64().or_else(|| p["level"].as_str()?.parse::<f64>().ok())
+            .is_some_and(|level| level >= 1.0 && level <= 100.0 && level.fract() == 0.0);
+        let locked = self.automation["pokemonTravado"].as_array();
+        let depot = |p: &&Value| p["slot"].is_null() && id(&p["id"]) != self.active_id
+            && !locked.is_some_and(|ids| ids.iter().any(|v| id(v) == id(&p["id"])));
+        if self.pokemons.values().filter(depot).any(|p| numeric_id(p).is_none()) { return None; }
+        // The bulk endpoint sells the entire prefix. Never cross a protected ID.
+        let boundary = self.pokemons.values().filter(depot).filter(|p| !safe_level(p)).filter_map(numeric_id).min().unwrap_or(u64::MAX);
+        let max = self.pokemons.values().filter(depot).filter(|p| safe_level(p))
+            .filter_map(numeric_id).filter(|id| *id < boundary).max()?;
         if max == 0 || max > 9_007_199_254_740_991 { return None; }
         self.last_sale = Some(now);
         Some(json!({"t":"shop.sellAllPokemons","ateId":max}))
     }
+
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn auto() -> Value { json!({"autoLockShiny":true,"autoLockNota9":true,"autoLockNotaMin":3.5,"autoLockP5":true,"pokemonTravado":[8]}) }
     #[test]
-    fn confirmations_rate_limit_deltas_and_disconnect() {
-        let mut d = AutoDepot::default(); let mut pref = Preferences::default();
-        d.observe(&json!({"t":"welcome","estado":{"id":1,"automation":{},"activeId":1,"pokemons":[{"id":1},{"id":8},{"id":9}]}}));
-        assert_eq!(d.command(0,&mut pref).unwrap()["t"],"shop.autoLockShiny");
-        assert!(d.command(1000,&mut pref).is_none()); assert!(!pref.configured);
-        d.observe(&json!({"t":"estado","estado":{"automation":{"autoLockShiny":true}}}));
-        assert_eq!(d.command(5000,&mut pref).unwrap()["nota"],3.5);
-        d.observe(&json!({"t":"estado","estado":{"automation":{"autoLockShiny":true,"autoLockNota9":true,"autoLockNotaMin":3.5}}}));
-        assert_eq!(d.command(10000,&mut pref).unwrap()["t"],"shop.autoLockP5");
-        d.observe(&json!({"t":"estado","estado":{"automation":auto()}}));
-        assert!(d.command(15000,&mut pref).is_none()); assert!(pref.configured);
-        assert_eq!(d.command(20000,&mut pref).unwrap()["ateId"],9);
-        assert!(d.command(21000,&mut pref).is_none());
-        d.observe(&json!({"t":"estado","estado":{"pkFora":[9],"pkMud":[{"id":10,"slot":null}]}}));
-        assert_eq!(d.command(80000,&mut pref).unwrap()["ateId"],10);
-        d.observe(&json!({"t":"disconnected"})); assert!(d.command(140000,&mut pref).is_none());
-    }
-    #[test]
-    fn preferences_survive_reconnection_and_keep_later_edits() {
-        let mut d = AutoDepot::default(); let mut pref = Preferences { configured:true, enabled:false };
-        d.observe(&json!({"t":"welcome","estado":{"id":2,"automation":auto(),"pokemons":[{"id":10}]}}));
-        assert!(d.command(0,&mut pref).is_none()); pref.enabled = true;
-        assert!(d.command(0,&mut pref).is_some());
-        let mut edited = auto(); edited["autoLockNotaMin"] = json!(4.0);
-        d.observe(&json!({"t":"welcome","estado":{"id":2,"automation":edited,"pokemons":[{"id":10}]}}));
-        assert_eq!(d.command(60000,&mut pref).unwrap()["t"],"shop.sellAllPokemons");
-        edited["autoLockP5"] = json!(false);
-        d.observe(&json!({"t":"estado","estado":{"automation":edited}}));
-        assert!(d.command(120000,&mut pref).is_none());
-    }
-    #[test]
-    fn empty_depot_team_collection_shiny_and_p5_are_excluded() {
+    fn bulk_prefix_does_not_cross_trained_or_unknown_pokemon() {
         let mut d = AutoDepot::default();
-        let mut pref = Preferences { configured:true, enabled:true };
-        let mut protected = auto(); protected["pokemonTravado"] = json!([100]);
-        d.observe(&json!({"t":"welcome","estado":{"id":1,"activeId":104,"automation":protected,"pokemons":[
-            {"id":9,"slot":null},{"id":100},{"id":101,"shiny":true},{"id":102,"potencia":5},
-            {"id":103,"slot":0},{"id":104}
+        let mut p = Preferences { enabled:true, configured:false };
+        d.observe(&json!({"t":"welcome","estado":{"id":1,"pokemons":[{"id":2,"level":100},{"id":3,"level":101},{"id":4,"level":20}]}}));
+        assert_eq!(d.command(0,&mut p).unwrap()["ateId"],2);
+        d.observe(&json!({"t":"estado","estado":{"pkFora":[2],"pkMud":[{"id":3,"hp":10}]}}));
+        assert!(d.command(60000,&mut p).is_none());
+        d.observe(&json!({"t":"estado","estado":{"pkFora":[3],"pkMud":[{"id":1}]}}));
+        assert!(d.command(120000,&mut p).is_none());
+    }
+    #[test]
+    fn high_level_team_collection_and_active_do_not_block_low_level_depot() {
+        let mut d = AutoDepot::default();
+        let mut p = Preferences { enabled:true, configured:false };
+        d.observe(&json!({"t":"welcome","estado":{"id":1,"activeId":3,"automation":{"pokemonTravado":[2]},"pokemons":[
+            {"id":1,"level":1107,"slot":0},{"id":2,"level":101},{"id":3,"level":1065},
+            {"id":4,"level":40},{"id":5,"level":40}
         ]}}));
-        assert_eq!(d.command(0,&mut pref).unwrap()["ateId"],9);
-        d.observe(&json!({"t":"estado","estado":{"pkFora":[9]}}));
-        assert!(d.command(60000,&mut pref).is_none());
+        assert_eq!(d.command(0,&mut p).unwrap()["ateId"],5);
+        d.observe(&json!({"t":"estado","estado":{"automation":{"pokemonTravado":[]}}}));
+        assert!(d.command(60000,&mut p).is_none());
+    }
+    #[test]
+    fn explicit_toggle_rate_limit_and_disconnect() {
+        assert!(!Preferences::default().enabled);
+        let mut d = AutoDepot::default();
+        d.observe(&json!({"t":"welcome","estado":{"id":1,"pokemons":[{"id":99,"level":100,"shiny":true},{"id":200,"level":100,"slot":0}]}}));
+        let mut p = Preferences::default();
+        assert!(d.command(0,&mut p).is_none());
+        p.enabled = true;
+        assert_eq!(d.command(0,&mut p).unwrap(),json!({"t":"shop.sellAllPokemons","ateId":99}));
+        assert!(d.command(59999,&mut p).is_none());
+        p.enabled = false; assert!(d.command(60000,&mut p).is_none());
+        p.enabled = true; assert!(d.command(60000,&mut p).is_some());
+        d.observe(&json!({"t":"disconnected"})); assert!(d.command(120000,&mut p).is_none());
     }
 }
