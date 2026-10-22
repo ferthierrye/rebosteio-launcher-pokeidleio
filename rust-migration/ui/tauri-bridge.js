@@ -285,6 +285,7 @@
     '#dtOverlay.show',
     '#dtOv.show',
     '#dispatchOverlay.show',
+    '#depotSettingsDialog.show',
     '#autoSupplyOverlay.show',
     '#twitchBonusOverlay.show',
     '#kickBonusOverlay.show',
