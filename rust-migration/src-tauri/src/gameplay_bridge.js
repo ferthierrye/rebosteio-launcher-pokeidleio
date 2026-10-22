@@ -22,9 +22,7 @@
       (command.t === 'hunt.select' && typeof command.slug === 'string') ||
       (command.t === 'pokemon.evoluir' && gameId(command.pokemonId) && Number.isSafeInteger(command.alvoId)) ||
       (command.t === 'market.criar' && command.tipo === 'item' && gameId(command.itemId) && Number.isSafeInteger(command.qtd) && command.qtd > 0 && Number.isSafeInteger(command.preco) && command.preco > 0 && ['gold','orb'].includes(command.moeda)) ||
-      (command.t === 'auto.set' && command.autoVoltarHunt === false) ||
-      (command.t === 'shop.autoVendaLoot' && typeof command.ativo === 'boolean') ||
-      command.t === 'shop.sellAllItems'
+      (command.t === 'auto.set' && command.autoVoltarHunt === false)
     );
     if (!valid) return;
     latestSocket.send(JSON.stringify(command));

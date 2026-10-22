@@ -1,3 +1,4 @@
+pub mod userscripts;
 pub mod credentials;
 pub mod account_proxy;
 pub mod desktop_settings;
@@ -154,38 +155,20 @@ fn instance_new(target_id: Option<usize>) -> Result<bool, String> {
 }
 
 pub fn spawn_new_instance(target_id: usize) -> Result<bool, String> {
-    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
-
-    if let Some(source_bat) = std::env::var_os("PIO_NAILO_SOURCE_LAUNCHER") {
-        let bat_path = PathBuf::from(source_bat);
-        if bat_path.is_file() {
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                let mut cmd = std::process::Command::new("cmd.exe");
-                cmd.args(["/c", "start", "", bat_path.to_string_lossy().as_ref(), &format!("--instance={}", target_id)]);
-                cmd.env("PIO_INSTANCE", target_id.to_string());
-                cmd.creation_flags(0x08000000);
-                if let Ok(_) = cmd.spawn() {
-                    return Ok(true);
-                }
-            }
-        }
-    }
+    let current_exe = std::env::current_exe().map_err(|e| format!("Não foi possível localizar executável atual: {}", e))?;
+    println!("[Instance] Abrindo nova instância {} com executável: {:?}", target_id, current_exe);
 
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        let mut cmd = std::process::Command::new(current_exe);
+        let mut cmd = std::process::Command::new(&current_exe);
         cmd.arg(format!("--instance={}", target_id));
         cmd.env("PIO_INSTANCE", target_id.to_string());
-        cmd.creation_flags(0x08000000);
         cmd.spawn().map_err(|e| format!("Falha ao abrir nova instância: {}", e))?;
         Ok(true)
     }
     #[cfg(not(windows))]
     {
-        let mut cmd = std::process::Command::new(current_exe);
+        let mut cmd = std::process::Command::new(&current_exe);
         cmd.arg(format!("--instance={}", target_id));
         cmd.env("PIO_INSTANCE", target_id.to_string());
         cmd.spawn().map_err(|e| format!("Falha ao abrir nova instância: {}", e))?;
@@ -311,15 +294,8 @@ async fn userscript_fetch(url: String) -> serde_json::Value {
 }
 
 #[tauri::command]
-async fn userscript_request(url: String) -> ExtensionResponse {
-    let client = reqwest::Client::new();
-    if let Ok(resp) = client.get(&url).send().await {
-        let status = resp.status().as_u16();
-        let body = resp.text().await.unwrap_or_default();
-        ExtensionResponse { status, body }
-    } else {
-        ExtensionResponse { status: 500, body: String::new() }
-    }
+async fn userscript_request(url: String) -> userscripts::Response {
+    userscripts::fetch(&url, false).await
 }
 
 #[tauri::command]

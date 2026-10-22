@@ -1,92 +1,61 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('node:fs');
 const { installAutoDepot } = require('../src/ui/auto-depot');
-
 function setup(invoke) {
-  let now = 100000, tick;
-  const store = new Map();
-  class Socket {
-    constructor() { this.readyState = 1; this.handlers = {}; this.sent = []; }
-    addEventListener(t, f) { (this.handlers[t] ||= []).push(f); }
-    send(s) { this.sent.push(JSON.parse(s)); }
-    emit(m) { for (const f of this.handlers.message || []) f({ data: JSON.stringify(m) }); }
-    close() { this.readyState = 3; for (const f of this.handlers.close || []) f(); }
-  }
-  const w = { WebSocket: Socket };
-  if (invoke) w.__TAURI_INTERNALS__ = { invoke };
-  vm.runInNewContext('(' + installAutoDepot.toString() + ')()', {
-    window: w, Date: { now: () => now }, document: { querySelector: () => null },
-    localStorage: { getItem: k => store.get(k), setItem: (k, v) => store.set(k, v) },
-    setInterval: f => { tick = f; }
-  });
-  return { w, store, socket: () => new w.WebSocket(), tick: () => { now += 6000; tick(); }, minute: () => { now += 60000; tick(); } };
+ let tick, now=100000;
+ const store = new Map([['pio:auto-depot:v1:1', JSON.stringify({enabled:true,configured:true})]]);
+ class Socket { constructor(){this.readyState=1;this.handlers={};this.sent=[];} addEventListener(t,f){(this.handlers[t] ||= []).push(f);} send(m){this.sent.push(m);} emit(m){for(const f of this.handlers.message||[]) f({data:JSON.stringify(m)});} close(){this.readyState=3;for(const f of this.handlers.close||[])f();} }
+ const w={WebSocket:Socket}; if(invoke)w.__TAURI_INTERNALS__={invoke};
+ vm.runInNewContext('('+installAutoDepot.toString()+')()', {window:w,setInterval:f=>{tick=f;},Date:{now:()=>now},localStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)}});
+ return {w,store,s:new w.WebSocket(),tick:async(ms=2000)=>{now+=ms;tick();await new Promise(r=>setImmediate(r));}};
 }
-const protections = { autoLockShiny: true, autoLockNota9: true, autoLockNotaMin: 3.5, autoLockP5: true, pokemonTravado: [2] };
-function welcome(s, id = 1, auto = {}) {
-  s.emit({ t: 'welcome', estado: { id, automation: auto, pokemons: [{ id: 1, slot: 0 }, { id: 2, slot: null }, { id: 3, slot: null }] } });
-}
-test('waits for each server confirmation before selling; persists initialization', () => {
-  const e = setup(), s = e.socket(); welcome(s);
-  e.tick(); assert.deepEqual(s.sent.at(-1), { t: 'shop.autoLockShiny', ativo: true });
-  assert.equal(e.store.size, 0);
-  s.emit({ t: 'estado', estado: { automation: { autoLockShiny: true } } });
-  e.tick(); assert.deepEqual(s.sent.at(-1), { t: 'shop.autoLockNota9', ativo: true, nota: 3.5 });
-  s.emit({ t: 'estado', estado: { automation: { autoLockNota9: true, autoLockNotaMin: 3.5 } } });
-  e.tick(); assert.deepEqual(s.sent.at(-1), { t: 'shop.autoLockP5', ativo: true });
-  assert.ok(s.sent.every(c => c.t !== 'shop.sellAllPokemons'));
-  s.emit({ t: 'estado', estado: { automation: protections } });
-  e.tick(); assert.equal(JSON.parse(e.store.get('pio:auto-depot:v1:1')).configured, true);
-  e.tick(); assert.deepEqual(s.sent.at(-1), { t: 'shop.sellAllPokemons', ateId: 3 });
-  const count = s.sent.length; e.tick(); assert.equal(s.sent.length, count);
-  e.minute(); assert.equal(s.sent.length, count + 1);
+const settle=()=>new Promise(r=>setImmediate(r));
+test('legacy preference ignored; explicit opt-in sells all Depot and disabling stops sends',async()=>{
+ const e=setup();e.s.emit({t:'welcome',estado:{id:1,pokemons:[{id:9,level:100,shiny:true},{id:10,level:100,slot:0}]}});await settle();
+ assert.equal(e.w.__pioAutoDepot.enabled,false);
+ await e.w.__pioAutoDepot.setEnabled(true);
+ await e.tick();assert.match(e.w.__pioAutoDepot.phase,/ligado/);assert.deepEqual(JSON.parse(e.s.sent[0]),{t:'shop.sellAllPokemons',ateId:9});
+ await e.tick();assert.equal(e.s.sent.length,1);
+ await e.tick(60000);assert.equal(e.s.sent.length,2);
+ await e.w.__pioAutoDepot.setEnabled(false);assert.equal(e.w.__pioAutoDepot.phase,'desativado');await e.tick(60000);assert.equal(e.s.sent.length,2);
+ e.s.emit({t:'welcome',estado:{id:2}});await settle();assert.equal(e.w.__pioAutoDepot.enabled,false);
+ e.s.close();await assert.rejects(e.w.__pioAutoDepot.setEnabled(true));
 });
-test('keeps later options, pauses for disabled protections and reconnects independently per character', () => {
-  const e = setup(), s = e.socket(); welcome(s, 1, protections); e.tick(); e.tick();
-  s.emit({ t: 'estado', estado: { automation: { autoLockP5: false } } });
-  const n = s.sent.length; e.minute(); assert.equal(s.sent.length, n);
-  s.close(); e.minute(); assert.equal(s.sent.length, n);
-  const s2 = e.socket(); welcome(s2, 1, { ...protections, autoLockP5: false });
-  e.minute(); assert.equal(s2.sent.length, 0);
-  const s3 = e.socket(); welcome(s3, 2); e.tick();
-  assert.equal(s3.sent[0].t, 'shop.autoLockShiny');
-  assert.equal(e.store.has('pio:auto-depot:v1:2'), false);
+test('native preference write failure is visible and does not enable selling',async()=>{
+ const e=setup(async name=>{if(name==='auto_depot_get')return {enabled:false};throw Error('disk');});
+ e.s.emit({t:'welcome',estado:{id:1}});await settle();await assert.rejects(e.w.__pioAutoDepot.setEnabled(true));
+ assert.equal(e.w.__pioAutoDepot.enabled,false);assert.equal(e.w.__pioAutoDepot.phase,'falha ao salvar');assert.equal(e.s.sent.length,0);
 });
-test('disabled selling and delta removal prevent unnecessary sale requests', () => {
-  const e = setup(), s = e.socket(); welcome(s, 1, protections); e.tick();
-  e.store.set('pio:auto-depot:v1:1', JSON.stringify({ configured: true, enabled: false }));
-  e.minute(); assert.equal(s.sent.length, 0);
-  e.store.set('pio:auto-depot:v1:1', JSON.stringify({ configured: true, enabled: true }));
-  s.emit({ t: 'estado', estado: { pkFora: [3] } }); e.minute();
-  assert.equal(s.sent.length, 0);
-  s.emit({ t: 'estado', estado: { pkMud: [{ id: 9, slot: null }] } }); e.minute();
-  assert.deepEqual(s.sent.at(-1), { t: 'shop.sellAllPokemons', ateId: 9 });
+test('both application variants remove obsolete loot commands and mirror executor',()=>{
+ for(const p of ['index.html','rust-migration/ui/index.html']){
+ const s=fs.readFileSync(p,'utf8');assert.ok(!s.includes('shop.autoVendaLoot'));assert.ok(!s.includes('shop.sellAllItems'));assert.ok(s.includes('depotSettingsDialog'));
+ }
+ assert.equal(fs.readFileSync('src/ui/auto-depot.js','utf8'),fs.readFileSync('rust-migration/ui/src/ui/auto-depot.js','utf8'));
 });
-test('native preferences override stale local settings and initialization is saved for Headless', async () => {
-  const native = new Map();
-  const e = setup(async (command, args) => {
-    if (command === 'auto_depot_get') {
-      if (!native.has(args.account)) native.set(args.account, args.legacy);
-      return native.get(args.account);
-    }
-    assert.equal(command, 'auto_depot_set');
-    native.set(args.account, args.preferences);
-  });
-  const settle = () => new Promise(resolve => setImmediate(resolve));
-  native.set('1', { enabled: false, configured: true });
-  e.store.set('pio:auto-depot:v1:1', JSON.stringify({ enabled: true, configured: true }));
-  const s = e.socket(); welcome(s, 1, protections); e.minute();
-  assert.equal(s.sent.length, 0); await settle(); e.minute(); assert.equal(s.sent.length, 0);
-  const s2 = e.socket(); welcome(s2, 2, protections); await settle();
-  e.tick(); await settle();
-  assert.equal(native.get('2').configured, true);
-  e.tick(); assert.equal(s2.sent.at(-1).t, 'shop.sellAllPokemons');
-  assert.equal(native.get('1').enabled, false);
+
+test('launcher native preference changes are picked up without reopening game',async()=>{
+ let enabled=false;
+ const e=setup(async()=>({enabled}));e.s.emit({t:'welcome',estado:{id:1,pokemons:[{id:5,level:100}]}});await settle();
+ await e.tick();assert.equal(e.s.sent.length,0);
+ enabled=true;await e.tick();assert.equal(e.s.sent.length,1);
+ enabled=false;await e.tick(60000);assert.equal(e.s.sent.length,1);
 });
-test('native preference failure blocks sales', async () => {
-  const e = setup(async () => { throw Error('storage unavailable'); });
-  const s = e.socket(); welcome(s, 1, protections);
-  await new Promise(resolve => setImmediate(resolve)); e.minute();
-  assert.equal(s.sent.length, 0);
-  assert.equal(e.w.__pioAutoDepot.phase, 'falha ao carregar preferências');
+
+test('bulk range stops before level 101 even when sellable Pokémon have later IDs',async()=>{
+ const e=setup();e.s.emit({t:'welcome',estado:{id:1,pokemons:[{id:2,level:100},{id:3,level:101},{id:4,level:50}]}});await settle();
+ await e.w.__pioAutoDepot.setEnabled(true);await e.tick();
+ assert.deepEqual(JSON.parse(e.s.sent[0]),{t:'shop.sellAllPokemons',ateId:2});
+ e.s.emit({t:'estado',estado:{pkFora:[2],pkMud:[{id:3,hp:20}]}});await e.tick(60000);assert.equal(e.s.sent.length,1);
+ e.s.emit({t:'estado',estado:{pkFora:[3],pkMud:[{id:1}]}});await e.tick(60000);assert.equal(e.s.sent.length,1);
+});
+
+test('trained team and Collection do not block two level-40 Depot captures',async()=>{
+ const e=setup();e.s.emit({t:'welcome',estado:{id:1,activeId:3,automation:{pokemonTravado:[2]},pokemons:[
+  {id:1,level:1107,slot:0},{id:2,level:101},{id:3,level:1065},{id:4,level:40},{id:5,level:40}
+ ]}});await settle();await e.w.__pioAutoDepot.setEnabled(true);await e.tick();
+ assert.deepEqual(JSON.parse(e.s.sent[0]),{t:'shop.sellAllPokemons',ateId:5});
+ e.s.emit({t:'estado',estado:{automation:{pokemonTravado:[]}}});await e.tick(60000);
+ assert.equal(e.s.sent.length,1);assert.match(e.w.__pioAutoDepot.phase,/bloqueado/);
 });

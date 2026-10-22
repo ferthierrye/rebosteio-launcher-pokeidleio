@@ -2615,6 +2615,7 @@
   <link rel="stylesheet" href="src/ui/kick-bonus.css">
   <link rel="stylesheet" href="src/ui/auto-supply-individual.css">
   <link rel="stylesheet" href="src/ui/battle-hud.css">
+  <link rel="stylesheet" href="src/ui/depot-settings.css">
   <script src="src/ui/runtime-performance.js"></script>
   <script src="src/ui/capture-value.js"></script>
   <script src="src/ui/auto-depot.js"></script>
@@ -2672,7 +2673,7 @@
         <button id="dittoBtn" title="Onde caçar com o Ditto (comum ou shiny) e em que pokémon virar, no seu nível">✨
           Ditto</button>
         <button id="scriptsBtn" title="Rode userscripts (IV calc e os seus) nos painéis">🧩 Scripts</button>
-        <button id="autoSellBtn" title="Ativa a venda automática de loot no servidor para todas as contas">💰 Venda
+        <button id="autoSellBtn" title="Configurar venda automática do Depot">💰 Venda
           Automática</button>
         <button id="autoSupplyBtn" title="Reabastecimento automático de Pokébolas e Poções com verificação de saldo">📦
           Auto Supply</button>
@@ -2744,6 +2745,10 @@
       <p class="hint">Rode userscripts (estilo Tampermonkey) dentro de cada painel do jogo. O IV calc já vem pronto.
         Você pode colar os seus. <b>Só adicione scripts em que você confia</b>, eles têm acesso total à página do
         jogo.</p>
+      <div class="sc-sync" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0">
+        <button id="scSyncNow">↻ Verificar atualizações</button>
+        <span id="scSyncStatus" class="hint" role="status" aria-live="polite">GitHub: sincronização ao abrir e a cada 30 minutos. Novas versões entram na próxima recarga.</span>
+      </div>
       <div id="scList"></div>
       <div class="sc-add">
         <div class="sc-drop">Solte o arquivo .user.js aqui</div>
@@ -3399,7 +3404,7 @@
         dtHint: 'Escolha shiny ou comum, o nível do Ditto e o nível da conta (só entram hunts que ela alcança). Cada hunt mostra a melhor transformação pra ela. Regras do jogo: IV e qualidade do Ditto são fixos; Shiny Ditto tem -20% de Ataque e Sp. Atk (e -25% de HP e defesas), o comum -25% de Ataque e defesas; nenhum usa TM. Comum dura 12 h, shiny é permanente.',
         dtShiny: 'Shiny', dtComum: 'Comum', dtLevel: 'Nível do Ditto', dtFixos: 'IV {iv} · qualidade {q} (fixos no jogo)', dtReach: 'Nível da conta', dtReachTip: 'Só hunts até este nível (0 = todas)',
         dtByHunt: 'Por hunt', dtByType: 'Por tipo', dtMine: 'Meu Ditto…', dtNoMine: 'Nenhum Ditto no time das contas ligadas', dtVira: 'vira', dtFolga: 'folga', dtHidden: '{n} hunts acima do nível da conta ficaram de fora',
-        hunt: '🎯 Hunt', huntTitle: 'Abre o Hunt Analyzer em todos os painéis', tier: '\u{1F3C6} Tierlist', tierTitle: 'Ranking de eficácia por elemento, calculado contra as hunts disponíveis', tlCal: 'Calibrado com suas medições: dano real {d}% do modelo ({n} amostras); {a} s por golpe + {b} s por kill.', tlCal0: 'Ainda sem medição sua de dano (farme uns minutos com o app aberto): dano do modelo padrão; {a} s por golpe + {b} s por kill.', tlCalT: 'Tempos ajustados com {n} hunts suas.', tlTitle: 'Tierlist por elemento', tlLevelLbl: 'Seu nível', tlTm: 'com TM', tlObjXp: 'XP/h', tlObjGold: 'Gold/h', tlObjTip: 'O que a nota mede: XP por hora ou gold por hora (loot esperado a preço de NPC)', tlPoke: '🎯 Pokémon', tlPkMine: 'do meu time…', tlPkSp: 'Pokémon', tlPkLv: 'Nível', tlPkQ: 'Qualidade', tlPkIv: 'IV', tlPkPick: 'Escolha um Pokémon do seu time ou digite o nome de qualquer um: a lista mostra as melhores hunts pra ele até o seu nível.', tlGoldTip: 'Estimativa: kills/h do modelo × loot esperado por kill a preço de NPC. Não conta captura, supply nem bônus de loot; onde o valor vem de drop raro, a média demora a aparecer.', tlGoldNone: 'Os preços dos itens ainda não chegaram do jogo. O app tenta de novo sozinho, com uma conta aberta.', tlGoldFail: 'Não deu pra ler os preços dos itens do jogo. Feche e abra o app pra tentar de novo.', tlTmTip: 'Considerar TMs como o jogo faz: o elemental é um golpe extra em área a cada 10 s (só do próprio tipo, poder 300) e o AoE faz o golpe normal acertar todos os selvagens do quadro; os dois juntos. Desligado, só golpes naturais. TM é item: só estágio final aprende, e o Ditto não.', tlHint: 'Escolha seu nível ao lado: só entram as hunts que você alcança, e cada pokémon é avaliado no nível de cada hunt. Golpe físico bate na defesa física da hunt; especial, na especial; a vida do defensor segura o ritmo. XP de Orre já multiplicado.', tlAll: 'Resumo', tlGeral: 'Geral', scAddUrl: '+ Adicionar pelo GitHub', scBaixando: 'Baixando…', scReloadAviso: 'Isso recarrega os painéis ligados, e o jogo larga as contas na cidade: elas param de farmar até você voltar pra hunt. Continuar?', scRemover: 'Remover este script?', scTrust: 'Adicione só scripts de autores em que você confia: eles têm acesso total à página do jogo.\\n\\nContinuar?', scFalhou: 'Não deu pra baixar o script.', scAtualizar: 'Atualizar', scAtualizarTip: 'Busca a versão mais recente no GitHub (só quando você clica)', scAtualizado: 'Script atualizado!', scValeNoReload: 'A versão nova só entra quando os painéis recarregarem (⟳ Atualizar tudo).', scJaAtual: 'O script já está na versão mais recente.', scSoUser: 'Solte um arquivo .user.js', scGrande: 'Script grande demais: passa de 2 MB, ou os scripts somados passam de 4 MB.', tlFis: 'FÍS', tlEsp: 'ESP', tlFisTip: 'Golpe físico: enfrenta a defesa física da hunt', tlEspTip: 'Golpe especial: enfrenta a defesa especial da hunt', tlGeralHint: 'Nota geral = rendimento somado em todas as hunts; o melhor do jogo é 100.', tlWait: 'Aguardando os dados do jogo. Deixe uma conta logada e tente de novo.', tlBest: 'melhor em', tlOut: 'Melhor hunt em Outland (fora de Orre), pra quem ainda não alcança a região; o número é a nota nela', accClear: 'Limpar os campos deste formulário', accWipe: 'Limpar os dados do jogo desta conta (cookies e cache). Use se a conta bugou. A senha salva fica.', accWipeConfirm: 'Limpar os dados do jogo da conta {n}?\\nResolve conta bugada (mapa, filtros, pokémon sumidos). A senha salva não é apagada; a conta desloga e loga de novo.', accWipeOk: 'Dados limpos. A conta vai recarregar do zero.', accWipeErr: 'Não deu pra limpar. Tente fechar e abrir o app.', whMention: 'ID do usuário do Discord pra mencionar no alerta de shiny (opcional)', ivsTitle: 'Abre a calculadora de IV do app: uma só, no centro da tela, alimentada por qualquer painel', ivcTitle: "Calculadora de IV", ivcHint: 'Passe o mouse sobre um pokémon em qualquer painel.<br>Os dados aparecem aqui, e você pode ajustar nível e atributos pra recalcular.', ivcLevel: 'Nível', ivcQuality: 'Qualidade', ivcIvTotal: 'IV total', ivcPower: 'Poder estimado', ivcStats: 'Atributos e IV por stat', ivcCurrent: 'atual', ivcBase: 'base', ivcPowerGame: 'Poder no jogo', ivcFooter: 'edite qualquer campo pra recalcular', ivcOpenPanel: 'Abrir a calculadora dentro do painel (comparar)', ivcMoves: 'Golpes', ivcMovePower: 'poder do golpe', ivcMoveLast: 'último dano observado em batalha',
+        hunt: '🎯 Hunt', huntTitle: 'Abre o Hunt Analyzer em todos os painéis', tier: '\u{1F3C6} Tierlist', tierTitle: 'Ranking de eficácia por elemento, calculado contra as hunts disponíveis', tlCal: 'Calibrado com suas medições: dano real {d}% do modelo ({n} amostras); {a} s por golpe + {b} s por kill.', tlCal0: 'Ainda sem medição sua de dano (farme uns minutos com o app aberto): dano do modelo padrão; {a} s por golpe + {b} s por kill.', tlCalT: 'Tempos ajustados com {n} hunts suas.', tlTitle: 'Tierlist por elemento', tlLevelLbl: 'Seu nível', tlTm: 'com TM', tlObjXp: 'XP/h', tlObjGold: 'Gold/h', tlObjTip: 'O que a nota mede: XP por hora ou gold por hora (loot esperado a preço de NPC)', tlPoke: '🎯 Pokémon', tlPkMine: 'do meu time…', tlPkSp: 'Pokémon', tlPkLv: 'Nível', tlPkQ: 'Qualidade', tlPkIv: 'IV', tlPkPick: 'Escolha um Pokémon do seu time ou digite o nome de qualquer um: a lista mostra as melhores hunts pra ele até o seu nível.', tlGoldTip: 'Estimativa: kills/h do modelo × loot esperado por kill a preço de NPC. Não conta captura, supply nem bônus de loot; onde o valor vem de drop raro, a média demora a aparecer.', tlGoldNone: 'Os preços dos itens ainda não chegaram do jogo. O app tenta de novo sozinho, com uma conta aberta.', tlGoldFail: 'Não deu pra ler os preços dos itens do jogo. Feche e abra o app pra tentar de novo.', tlTmTip: 'Considerar TMs como o jogo faz: o elemental é um golpe extra em área a cada 10 s (só do próprio tipo, poder 300) e o AoE faz o golpe normal acertar todos os selvagens do quadro; os dois juntos. Desligado, só golpes naturais. TM é item: só estágio final aprende, e o Ditto não.', tlHint: 'Escolha seu nível ao lado: só entram as hunts que você alcança, e cada pokémon é avaliado no nível de cada hunt. Golpe físico bate na defesa física da hunt; especial, na especial; a vida do defensor segura o ritmo. XP de Orre já multiplicado.', tlAll: 'Resumo', tlGeral: 'Geral', scAddUrl: '+ Adicionar pelo GitHub', scBaixando: 'Baixando…', scReloadAviso: 'Isso recarrega os painéis ligados, e o jogo larga as contas na cidade: elas param de farmar até você voltar pra hunt. Continuar?', scRemover: 'Remover este script?', scTrust: 'Adicione só scripts de autores em que você confia: eles têm acesso total à página do jogo.\\n\\nContinuar?', scFalhou: 'Não deu pra baixar o script.', scAtualizar: 'Atualizar', scAtualizarTip: 'Busca a versão mais recente no GitHub', scAtualizado: 'Script atualizado!', scValeNoReload: 'A versão nova só entra quando os painéis recarregarem (⟳ Atualizar tudo).', scJaAtual: 'O script já está na versão mais recente.', scSoUser: 'Solte um arquivo .user.js', scGrande: 'Script grande demais: passa de 2 MB, ou os scripts somados passam de 4 MB.', tlFis: 'FÍS', tlEsp: 'ESP', tlFisTip: 'Golpe físico: enfrenta a defesa física da hunt', tlEspTip: 'Golpe especial: enfrenta a defesa especial da hunt', tlGeralHint: 'Nota geral = rendimento somado em todas as hunts; o melhor do jogo é 100.', tlWait: 'Aguardando os dados do jogo. Deixe uma conta logada e tente de novo.', tlBest: 'melhor em', tlOut: 'Melhor hunt em Outland (fora de Orre), pra quem ainda não alcança a região; o número é a nota nela', accClear: 'Limpar os campos deste formulário', accWipe: 'Limpar os dados do jogo desta conta (cookies e cache). Use se a conta bugou. A senha salva fica.', accWipeConfirm: 'Limpar os dados do jogo da conta {n}?\\nResolve conta bugada (mapa, filtros, pokémon sumidos). A senha salva não é apagada; a conta desloga e loga de novo.', accWipeOk: 'Dados limpos. A conta vai recarregar do zero.', accWipeErr: 'Não deu pra limpar. Tente fechar e abrir o app.', whMention: 'ID do usuário do Discord pra mencionar no alerta de shiny (opcional)', ivsTitle: 'Abre a calculadora de IV do app: uma só, no centro da tela, alimentada por qualquer painel', ivcTitle: "Calculadora de IV", ivcHint: 'Passe o mouse sobre um pokémon em qualquer painel.<br>Os dados aparecem aqui, e você pode ajustar nível e atributos pra recalcular.', ivcLevel: 'Nível', ivcQuality: 'Qualidade', ivcIvTotal: 'IV total', ivcPower: 'Poder estimado', ivcStats: 'Atributos e IV por stat', ivcCurrent: 'atual', ivcBase: 'base', ivcPowerGame: 'Poder no jogo', ivcFooter: 'edite qualquer campo pra recalcular', ivcOpenPanel: 'Abrir a calculadora dentro do painel (comparar)', ivcMoves: 'Golpes', ivcMovePower: 'poder do golpe', ivcMoveLast: 'último dano observado em batalha',
         alerts: '🔔 Alertas', alertsTitle: 'Liga e desliga todos os sons do jogo e avisos do Windows: Sound Mode, som de shiny, captura, boss drops, quedas e paradas', msgDown: 'caiu', msgBalls: 'está sem pokébolas', count: '🔢 Painéis', countTitle: 'Quatro contas fixas na mesma família.', stats: '📊 Painel', statsTitle: 'Resumo da conta em foco (gold/h, XP/h, bag, drops)', statsResumo: 'Resumo', statsWaiting: 'Aguardando dados do jogo…', statsWaiting2: 'Deixe o painel logado e farmando alguns segundos.', statsOff: 'Painel desligado.',
         stLevel: 'Nível', stSession: 'Sessão', stDefeated: 'Derrotados', stXpGain: 'XP ganha', stCaptures: 'Capturas', stGold: 'Ouro da sessão', stLoot: 'Loot (venda)', stCapSell: 'Capturas (valor NPC estimado)', stSupply: 'Suprimentos gastos', stBalls: 'bolas', stPots: 'cura', stBalance: 'Saldo da sessão', stDrops: 'Drops da sessão', stAccount: 'Conta', stProfession: 'Profissão', stMail: 'Presentes no correio', stCatchTotal: 'Capturas totais', stTeam: 'Time', donTitle: 'Ajude o projeto', donText: 'O PokeGrid é gratuito e feito nas horas vagas. Se ele facilita o seu farm, um apoio de qualquer valor ajuda a manter o projeto vivo.', donBtn: 'Apoiar via Pix / Mercado Pago \u2197', stTeamPick: 'Clique pra colocar na frente (vira o líder que caça)', stTeamLead: 'Líder atual',
         cards: '🍃 Simples', cardsShort: 'Simples', cardsTitle: 'Modo simples e ultra leve: esconde o jogo e mostra só os números, gastando o mínimo do PC (o farm continua)', cdGold: 'gold/h líquido', cdXp: 'XP/h total', cdKills: 'kills/h', cdCaps: 'capturas (sessão)', cdShiny: 'shiny enc/cap', cdActive: 'contas ativas', cdByAcc: 'Por conta · clique no cabeçalho pra ordenar, na linha pra abrir o jogo', cdTrend: 'Tendência · última hora', cdCatches: 'Últimas capturas · todas as contas', cdShinies: 'Aparições de shiny ✨', cdConta: 'Conta', cdHunt: 'Hunt', cdStatus: 'Status', cdBest: 'Melhor catch', cdLast: 'Último catch', cdWaiting: 'aguardando…', cdOff: 'desligado', cdHunting: 'caçando', cdTotal: 'Total', cdSeen: 'apareceram', cdCaught: 'capturados', cdLost: 'perdidos', cdNone: 'nada ainda',
@@ -3870,7 +3875,6 @@
             wv.executeJavaScript(inGameEcoScript(eco)).catch(() => { });
             if (leve()) wv.executeJavaScript(ultraScript(true)).catch(() => { }); // reaplica o ultra apos reload/relogin (Simples ou janela escondida)
           }
-          if (autoSellLootOn) wv.executeJavaScript(autoSellScript(true)).catch(() => { });
           wv.executeJavaScript(PUSH_STATE()).catch(() => { }); // painel Simples le daqui sem perguntar
           wv.executeJavaScript(TURNSTILE_GC).catch(() => { }); // solta o captcha do login depois de entrar (ver TURNSTILE_GC)
           // jogo congelado com pagina viva: WebGL perdeu o contexto e nao restaurou em 4s -> recarrega (ignora se estiver em ultra leve)
@@ -6634,44 +6638,75 @@
       webviews.forEach((w, i) => { if (off[i]) return; try { w.executeJavaScript(huntScript).catch(() => { }); } catch { } });
     };
 
-    // ----- Venda Automática do Inventário (Loot) -----
-    let autoSellLootOn = lsGet('autoSellLoot') === '1';
+    // Venda do Depot: settings are individual; obsolete loot commands are retired.
     const autoSellBtn = document.getElementById('autoSellBtn');
-    const autoSellScript = (on) => `(() => {
-    try {
-      const P = window.__poke;
-      if (P && P.sock && P.sock.readyState === 1) {
-        P.sock.send(JSON.stringify({ t: 'shop.autoVendaLoot', ativo: ${on ? 'true' : 'false'}, avisoVisto: true }));
-        if (${on ? 'true' : 'false'}) {
-          P.sock.send(JSON.stringify({ t: 'shop.sellAllItems' }));
+    function applyAutoSellLoot() {
+      if (autoSellBtn) { autoSellBtn.classList.remove('on'); autoSellBtn.title = 'Configurar venda do Depot por personagem'; }
+      const badge = document.getElementById('leafAutoSellBadge');
+      if (badge) { badge.textContent = 'CONFIG'; badge.classList.remove('is-on'); }
+    }
+    if (autoSellBtn) autoSellBtn.onclick = async () => {
+      document.getElementById('depotSettingsDialog')?.querySelector('[data-depot-close]')?.click();
+      const backdrop = document.createElement('div'); backdrop.id = 'depotSettingsDialog';
+      const dialog = document.createElement('section'); dialog.className = 'depot-panel';
+      dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-label', 'Venda automática do Depot');
+      const eyebrow = document.createElement('div'); eyebrow.className = 'depot-eyebrow'; eyebrow.textContent = 'AUTOMAÇÕES / DEPOT'; dialog.append(eyebrow);
+      const title = document.createElement('h3'); title.textContent = 'Venda automática'; dialog.append(title);
+      const info = document.createElement('p'); info.className = 'depot-intro'; info.textContent = 'Seu Depot organizado, no seu controle. Escolha quais personagens podem vender automaticamente.'; dialog.append(info);
+      const rules = document.createElement('div'); rules.className = 'depot-rules';
+      for (const text of ['A cada 1 minuto', 'Vende até Nv. 100', 'Preserva Nv. 101+']) {
+        const chip = document.createElement('span'); chip.className = 'depot-chip'; chip.textContent = text; rules.append(chip);
+      }
+      dialog.append(rules);
+      const heading = document.createElement('div'); heading.className = 'depot-section-label'; heading.textContent = 'SEUS PERSONAGENS'; dialog.append(heading);
+      const close = document.createElement('button'); close.textContent = 'Fechar ×'; close.dataset.depotClose = ''; close.className = 'depot-close';
+      const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close.click(); } };
+      close.onclick = () => { document.removeEventListener('keydown', onKey, true); backdrop.classList.remove('show'); backdrop.remove(); autoSellBtn.focus(); };
+      backdrop.onclick = e => { if (e.target === backdrop) close.click(); };
+      dialog.prepend(close); backdrop.append(dialog); document.body.append(backdrop); backdrop.classList.add('show');
+      document.addEventListener('keydown', onKey, true); close.focus();
+      for (let i = 0; i < webviews.length; i++) {
+        if (off[i] || !webviews[i]) continue;
+        const row = document.createElement('div'); row.className = 'depot-account';
+        const accountName = document.createElement('span'); accountName.className = 'depot-account-name'; accountName.textContent = 'Conta ' + (i + 1);
+        const accountState = document.createElement('span'); accountState.className = 'depot-account-state'; accountState.textContent = 'Carregando configuração…'; accountState.setAttribute('aria-live', 'polite');
+        row.append(accountName, accountState); dialog.append(row);
+        try {
+          const native = window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke;
+          const cached = typeof stCache !== 'undefined' ? stCache[i]?.d : null;
+          let state;
+          if (native && cached?.cid) {
+            const pref = await native('auto_depot_get', { account: String(cached.cid), legacy: null });
+            state = { account: cached.cid, enabled: pref.enabled, phase: 'habilitado (venda até nível 100)' };
+            try {
+              const live = await webviews[i].executeJavaScript('(()=>{const s=window.__pioAutoDepot;return s?{account:s.account,phase:s.phase}:null})()');
+              if (live && String(live.account) === String(state.account) && pref.enabled) state.phase = live.phase;
+            } catch { /* Headless reads the shared native preference directly. */ }
+          } else state = await webviews[i].executeJavaScript('(()=>{const s=window.__pioAutoDepot;return s?{account:s.account,enabled:s.enabled,phase:s.phase}:null})()');
+          if (!state?.account) { accountState.textContent = 'Abra o personagem para configurar'; continue; }
+          accountName.textContent = (cached?.nick || cached?.name || 'Conta ' + (i + 1));
+          accountState.textContent = state.enabled ? state.phase : 'Desligada · você decide quando ativar';
+          row.dataset.enabled = String(!!state.enabled);
+          const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = !!state.enabled;
+          checkbox.setAttribute('aria-label', 'Habilitar preferência de venda da conta ' + (i + 1));
+          checkbox.onchange = async () => {
+            checkbox.disabled = true; accountState.textContent = 'Salvando…';
+            try {
+              if (native) await native('auto_depot_set', { account: String(state.account), preferences: { enabled: checkbox.checked, configured: false } });
+              else await webviews[i].executeJavaScript('window.__pioAutoDepot.setEnabled(' + checkbox.checked + ')');
+              checkbox.title = checkbox.checked ? 'Habilitado: venda até nível 100 (1 min)' : 'Desativado';
+              accountState.textContent = checkbox.title; row.dataset.enabled = String(checkbox.checked);
+            } catch { checkbox.checked = !checkbox.checked; accountState.textContent = 'Não foi possível salvar. Tente novamente.'; }
+            finally { checkbox.disabled = false; }
+          };
+          row.append(checkbox);
+        } catch (error) {
+          console.error('Falha ao carregar configuração do Depot da conta ' + (i + 1), error);
+          accountState.textContent = 'Falha ao carregar. Feche o painel e tente novamente.';
         }
       }
-    } catch(e) {}
-  })()`;
-    function syncAutoSellUI() {
-      if (autoSellBtn) autoSellBtn.classList.toggle('on', autoSellLootOn);
-      const badge = document.getElementById('leafAutoSellBadge');
-      if (badge) {
-        badge.textContent = autoSellLootOn ? 'ON' : 'OFF';
-        badge.classList.toggle('is-on', autoSellLootOn);
-      }
-    }
-    function applyAutoSellLoot() {
-      syncAutoSellUI();
-      webviews.forEach((w, i) => {
-        if (off[i] || !w) return;
-        try {
-          w.executeJavaScript(autoSellScript(autoSellLootOn)).catch(() => { });
-        } catch { }
-      });
-      lsSet('autoSellLoot', autoSellLootOn ? '1' : '0');
-    }
-    if (autoSellBtn) {
-      autoSellBtn.onclick = () => {
-        autoSellLootOn = !autoSellLootOn;
-        applyAutoSellLoot();
-      };
-    }
+      const note = document.createElement('p'); note.className = 'depot-footnote'; note.textContent = 'Só o Depot entra na venda. Equipe e Coleção ficam de fora. Pokémon com nível 101+ ou desconhecido podem bloquear parte do lote. Sua escolha fica salva por personagem.'; dialog.append(note);
+    };
 
     // ----- Despachar Contas para Hunt (sem sair do Modo Eco) -----
     const prettyHunt = s => String(s || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
@@ -10360,14 +10395,23 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     document.getElementById('errlogBtn').onclick = () => { try { window.pokeAPI.openErrorLog(); } catch { } menu.classList.remove('show'); };
     const newInstBtn = document.getElementById('newInstanceBtn');
     if (newInstBtn) {
-      newInstBtn.onclick = () => {
+      newInstBtn.onclick = async () => {
         menu.classList.remove('show');
         try {
+          if (typeof showToast === 'function') {
+            showToast('➕ Abrindo nova instância (8 contas)...');
+          }
           if (window.pokeAPI && window.pokeAPI.openNewInstance) {
-            window.pokeAPI.openNewInstance();
+            const ok = await window.pokeAPI.openNewInstance();
+            if (!ok && typeof showToast === 'function') {
+              showToast('⚠️ Falha ao abrir nova instância. Veja o relatório de erros.');
+            }
           }
         } catch (e) {
           console.error(e);
+          if (typeof showToast === 'function') {
+            showToast('⚠️ Erro ao abrir instância: ' + (e && e.message ? e.message : e));
+          }
         }
       };
     }
@@ -13085,7 +13129,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     let userScripts = []; try { userScripts = lsArr('userScripts'); } catch { }
     // teto total de 4 MB ANTES do lsSet: estourar a cota fazia o lsSet podar o HISTORICO do usuario (hunts,
     // capturas) a cada clique, e o script rodava sem ficar salvo. Se nao couber, a memoria volta ao que esta no disco.
-    const saveScripts = () => { try { const js = JSON.stringify(userScripts); if (js.length > 4 * 1024 * 1024 || !lsSet('userScripts', js)) { userScripts = lsArr('userScripts'); window.alert(t('scGrande')); return false; } lsSet('scriptsOn', JSON.stringify(scriptsOn)); return true; } catch { return false; } };
+    const saveScripts = (quiet = false) => { try { const js = JSON.stringify(userScripts); if (js.length > 4 * 1024 * 1024 || !lsSet('userScripts', js)) { userScripts = lsArr('userScripts'); if (!quiet) window.alert(t('scGrande')); return false; } lsSet('scriptsOn', JSON.stringify(scriptsOn)); return true; } catch { return false; } };
     const escH = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const presetCache = {};
     const allScripts = () => PRESETS.concat(userScripts);
@@ -13104,9 +13148,9 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
       };
       return { name: campo('name'), version: campo('version'), author: campo('author') };
     };
-    // instala pelo link do GitHub. Sem atualizacao automatica de proposito: codigo de terceiro nao
-    // troca sozinho dentro das contas logadas, so quando VOCE clica em Atualizar.
+    // Instala pelo GitHub; atualizações automáticas ficam salvas para a próxima recarga.
     async function instalaPorUrl(url, btn) {
+      if (scSyncPromise) await scSyncPromise;
       if (!url) return;
       if (!window.confirm(t('scTrust'))) return;
       if (btn) { btn.disabled = true; btn.textContent = t('scBaixando'); }
@@ -13116,27 +13160,62 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
       const ja = userScripts.find(x => x.url === r.url); if (ja) { const i0 = document.getElementById('scUrl'); if (i0) i0.value = ''; return atualizaScript(ja.id); } // mesmo link de novo = atualizar, nao duplicar
       const meta = scMeta(r.code), id = 'u' + Date.now();
       userScripts.push({ id, name: meta.name || String(r.url).split('/').pop().replace(/\.user\.js|\.js/i, ''), code: r.code, url: r.url, version: meta.version, author: meta.author });
-      scriptsOn[id] = true; saveScripts(); renderScriptsList(); applyScriptToAll(id);
+      scriptsOn[id] = true; if (!saveScripts()) { delete scriptsOn[id]; return; } renderScriptsList(); applyScriptToAll(id);
       const inp = document.getElementById('scUrl'); if (inp) inp.value = '';
     }
     async function atualizaScript(id, btn) {
+      if (scSyncPromise) await scSyncPromise;
       const sc = userScripts.find(x => x.id === id); if (!sc || !sc.url) return;
       if (btn) { btn.disabled = true; btn.textContent = '\u23f3'; }
       let r; try { r = await window.pokeAPI.fetchUserScript(sc.url); } catch { r = null; }
       if (!r || !r.ok) { window.alert((r && r.error) || t('scFalhou')); renderScriptsList(); return; }
       const meta = scMeta(r.code), mudou = r.code !== sc.code;
-      sc.code = r.code; sc.name = meta.name || sc.name; sc.version = meta.version || sc.version; sc.author = meta.author || sc.author;
+      const previous = { ...sc };
+      sc.url = r.url || sc.url; sc.code = r.code; sc.name = meta.name || sc.name; sc.version = meta.version || sc.version; sc.author = meta.author || sc.author;
       delete sc.grants; // @grant pode ter mudado no commit novo
-      saveScripts(); renderScriptsList();
+      if (!saveScripts()) { Object.assign(sc, previous); renderScriptsList(); return; } renderScriptsList();
       const rec = mudou && scriptsOn[id] && window.confirm(t('scReloadAviso'));
       if (rec) webviews.forEach((w, wi) => { if (!off[wi]) try { w.reload(); } catch { } });
       window.alert(mudou ? t('scAtualizado') + (sc.version ? ' v' + sc.version : '') + (scriptsOn[id] && !rec ? ' ' + t('scValeNoReload') : '') : t('scJaAtual'));
     }
+    // GitHub sync stores updates for the next document; never reloads a running game.
+    let scSyncPromise = null;
+    const scSyncStatus = text => { const el = document.getElementById('scSyncStatus'); if (el) el.textContent = text; };
+    function syncGitHubScripts() {
+      if (scSyncPromise) return scSyncPromise;
+      scSyncPromise = (async () => {
+        const targets = userScripts.filter(s => s.url).map(s => ({ id:s.id, url:s.url, code:s.code }));
+        if (!targets.length) { scSyncStatus('Adicione um arquivo .js do GitHub para sincronizar.'); return; }
+        scSyncStatus('Verificando atualizações no GitHub…');
+        let updated = 0, failed = 0;
+        for (const target of targets) {
+          try {
+            const r = await window.pokeAPI.fetchUserScript(target.url);
+            if (!r?.ok || typeof r.code !== 'string') { failed++; continue; }
+            const current = userScripts.find(s => s.id === target.id && s.url === target.url && s.code === target.code);
+            if (!current || current.code === r.code) continue;
+            const meta = scMeta(r.code);
+            const before = userScripts;
+            userScripts = userScripts.map(s => s === current ? { ...s, code:r.code, url:r.url || s.url, name:meta.name || s.name, version:meta.version || s.version, author:meta.author || s.author, grants:undefined } : s);
+            if (!saveScripts(true)) { userScripts = before; failed++; continue; }
+            updated++;
+          } catch { failed++; }
+        }
+        renderScriptsList();
+        scSyncStatus((updated ? updated + ' script(s) atualizado(s). A versão nova entra na próxima recarga do jogo.' : failed ? 'Verificação incompleta.' : 'Scripts conferidos: nenhuma versão nova.') + (failed ? ' Não foi possível verificar ' + failed + ' script(s); versões salvas preservadas.' : ''));
+      })().finally(() => { scSyncPromise = null; });
+      return scSyncPromise;
+    }
+    const scSyncButton = document.getElementById('scSyncNow');
+    if (scSyncButton) scSyncButton.onclick = async () => { scSyncButton.disabled = true; try { await syncGitHubScripts(); } finally { scSyncButton.disabled = false; } };
+    setTimeout(() => { void syncGitHubScripts(); }, 8000);
+    setInterval(() => { void syncGitHubScripts(); }, 30 * 60 * 1000);
+
     function instalaCodigo(code, nomeFallback) {
       if (!String(code || '').trim() || !window.confirm(t('scTrust'))) return;
       const meta = scMeta(code), id = 'u' + Date.now();
       userScripts.push({ id, name: meta.name || nomeFallback, code, version: meta.version, author: meta.author });
-      scriptsOn[id] = true; saveScripts(); renderScriptsList(); applyScriptToAll(id);
+      scriptsOn[id] = true; if (!saveScripts()) { delete scriptsOn[id]; return; } renderScriptsList(); applyScriptToAll(id);
     }
     async function getScriptCode(s) {
       if (s.file) { if (presetCache[s.file] == null) { try { presetCache[s.file] = (await window.pokeAPI.readPreset(s.file)) || ''; } catch { presetCache[s.file] = ''; } } return presetCache[s.file]; }
@@ -13271,7 +13350,7 @@ return {portal:isPort,live,sk:!!(P.sock&&P.sock.readyState===1),hasBalls,hasInv,
     const scOverlay = document.getElementById('scOverlay');
     if (scOverlay) {
       const sb = document.getElementById('scriptsBtn');
-      if (sb) sb.onclick = () => { renderScriptsList(); scOverlay.classList.add('show'); };
+      if (sb) sb.onclick = () => { renderScriptsList(); scOverlay.classList.add('show'); void syncGitHubScripts(); };
       const scClose = document.getElementById('scClose');
       if (scClose) scClose.onclick = () => scOverlay.classList.remove('show');
       scOverlay.onclick = (e) => { if (e.target === scOverlay) scOverlay.classList.remove('show'); };

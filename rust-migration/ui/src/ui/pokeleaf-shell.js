@@ -160,7 +160,7 @@
     <button class="leaf-tool-item" data-old="statsBtn"><span class="ico">↗</span><span>Resumo da conta</span></button>
     <button class="leaf-tool-item" data-old="accounts"><span class="ico">○</span><span>Treinadores</span></button>
     <div class="leaf-tool-sep"></div>
-    <button class="leaf-tool-item" data-old="autoSellBtn"><span class="ico">💰</span><span>Venda Automática</span><span class="leaf-tool-badge" id="leafAutoSellBadge">OFF</span></button>
+    <button class="leaf-tool-item" data-old="autoSellBtn"><span class="ico">💰</span><span>Venda do Depot</span><span class="leaf-tool-badge" id="leafAutoSellBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="autoSupplyBtn"><span class="ico">📦</span><span>Auto Supply</span><span class="leaf-tool-badge" id="leafAutoSupplyBadge">OFF</span></button>
     <button class="leaf-tool-item" data-old="dispatchHuntBtn"><span class="ico">🎯</span><span>Despachar Contas</span></button>
     <button class="leaf-tool-item" data-old="newInstanceBtn"><span class="ico">➕</span><span>Nova instância (8 contas)</span></button>
@@ -356,7 +356,7 @@
     const badge = $('#leafAutoSellBadge');
     if (!badge) return;
     const isOn = oldOn('autoSellBtn') || (typeof autoSellLootOn !== 'undefined' && Boolean(autoSellLootOn));
-    badge.textContent = isOn ? 'ON' : 'OFF';
+    badge.textContent = 'CONFIG';
     badge.classList.toggle('is-on', isOn);
   }
   function syncAutoSupplyBadge() {
